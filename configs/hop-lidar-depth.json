@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+
+      "vertical_lidar": {
+        "driver": "lidar",
+        "in": ["raw"],
+        "out": ["raw", "scan"],
+        "init": {
+          "sleep": 0.06
+        }
+      },
+      "vertical_lidar_tcp": {
+        "driver": "tcp",
+        "in": ["raw"],
+        "out": ["raw"],
+        "init": {
+          "host": "192.168.1.71",
+          "port": 2111,
+          "timeout": 1.0
+        }
+      },
+
+      "horizontal_lidar": {
+        "driver": "lidar",
+        "in": ["raw"],
+        "out": ["raw", "scan"],
+        "init": {
+          "sleep": 0.06
+        }
+      },
+      "horizontal_lidar_tcp": {
+        "driver": "tcp",
+        "in": ["raw"],
+        "out": ["raw"],
+        "init": {
+          "host": "192.168.1.73",
+          "port": 2111,
+          "timeout": 1.0
+        }
+      }
+    },
+    "links": [
+              ["vertical_lidar_tcp.raw", "vertical_lidar.raw"],
+              ["vertical_lidar.raw", "vertical_lidar_tcp.raw"],
+
+              ["horizontal_lidar_tcp.raw", "horizontal_lidar.raw"],
+              ["horizontal_lidar.raw", "horizontal_lidar_tcp.raw"]
+    ]
+  }
+}
