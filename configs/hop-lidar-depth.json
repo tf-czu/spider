@@ -100,6 +100,28 @@
             "stereo_subpixel": true,
             "stereo_left_right_check": true
           }
+      },
+
+      "gps": {
+        "driver": "gps",
+        "init": {}
+      },
+      "rtk_filter": {
+        "driver": "rtk_filter",
+          "in": ["nmea"],
+          "out": ["filtered"],
+          "init": {
+        }
+      },
+      "rtk_modem": {
+        "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.11",
+              "port": 10001,
+              "bufsize": 2000
+        }
       }
 
     },
@@ -117,7 +139,12 @@
               ["vertical_lidar.raw", "vertical_lidar_tcp.raw"],
 
               ["horizontal_lidar_tcp.raw", "horizontal_lidar.raw"],
-              ["horizontal_lidar.raw", "horizontal_lidar_tcp.raw"]
+              ["horizontal_lidar.raw", "horizontal_lidar_tcp.raw"],
+
+              ["gps_tcp.raw", "gps.raw"],
+              ["gps_tcp.raw", "rtk_filter.nmea"],
+              ["rtk_filter.filtered", "rtk_modem.raw"],
+              ["rtk_modem.raw", "gps_tcp.raw"]
     ]
   }
 }
