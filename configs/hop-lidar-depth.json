@@ -102,6 +102,16 @@
           }
       },
 
+      "gps_tcp": {
+          "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.10",
+              "port": 10001,
+              "bufsize": 2000
+          }
+      },
       "gps": {
         "driver": "gps",
         "init": {}
