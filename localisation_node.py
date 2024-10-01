@@ -64,4 +64,3 @@ class LocalizationNode(Node):
         plt.plot(x, y, "r.-", label="odom")
         plt.legend()
         plt.show()
-        
