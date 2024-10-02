@@ -2,10 +2,10 @@
     TODO
 """
 from tabnanny import verbose
-# from lib.localization import Localization
-from unittest.mock import MagicMock as Localization, MagicMock  # Real Localization is not working yet
-Localization.update_xyz_gps = MagicMock()
-Localization.get_pose3d = MagicMock(return_value=(1, 1, 1))
+from lib.localization import Localization
+#from unittest.mock import MagicMock as Localization, MagicMock  # Real Localization is not working yet
+#Localization.update_xyz_gps = MagicMock()
+#Localization.get_pose3d = MagicMock(return_value=(1, 1, 1))
 
 from osgar.node import Node
 from osgar.lib.route import Convertor
@@ -40,7 +40,7 @@ class GpsLocalization(Node):
             z = 0
         if self.con:
             x, y = self.con.geo2planar((lon, lat))
-            Localization.update_xyz_gps((x, y, z), qps_err = (0.05, 0.05, 0.15))
+            self.localization.update_xyz_gps([x, y, z], gps_err = [0.05, 0.05, 0.15])
             if self.verbose:
                 self.debug_org_position.append([x, y])
         else:
@@ -48,7 +48,7 @@ class GpsLocalization(Node):
 
 
     def on_timer(self, data):
-        pose3d = Localization.get_pose3d(self.time)
+        pose3d = self.localization.get_pose3d(self.time)
         if pose3d:
             if verbose:
                 (x, y, __), __ = pose3d

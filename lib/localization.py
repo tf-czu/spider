@@ -1,10 +1,9 @@
 
 import numpy as np
 
-#import osgar.lib.quaternion as quaternion
-import quaternion
+from osgar.lib.quaternion import rotate_vector
 
-from kalman_9 import Acc3DKalmanFilter
+from lib.kalman_9 import Acc3DKalmanFilter
 
 def interpolate(x, x_a, y_a, x_b, y_b):
     """
@@ -79,7 +78,7 @@ class Localization:
         self.history['distance'].append( (time, distance) )
         orientation_time, orientation = self.history['orientation'][-1]
         distance_3D = [distance * o for o in orientation]
-        distance_3D = quaternion.rotate_vector([distance, 0.0, 0.0], orientation)
+        distance_3D = rotate_vector([distance, 0.0, 0.0], orientation)
         if len(self.history['position from IMU']) == 0:
             last_xyz = [0.0, 0.0, 0.0]
         else:
