@@ -1,11 +1,9 @@
 """
     TODO
 """
+
 from tabnanny import verbose
 from lib.localization import Localization
-#from unittest.mock import MagicMock as Localization, MagicMock  # Real Localization is not working yet
-#Localization.update_xyz_gps = MagicMock()
-#Localization.get_pose3d = MagicMock(return_value=(1, 1, 1))
 
 from osgar.node import Node
 from osgar.lib.route import Convertor
@@ -40,17 +38,16 @@ class GpsLocalization(Node):
             z = 0
         if self.con:
             x, y = self.con.geo2planar((lon, lat))
-            self.localization.update_xyz_gps([x, y, z], gps_err = [0.05, 0.05, 0.15])
+            self.localization.update_xyz_from_gps(self.time, [x, y, z], gps_err = [0.05, 0.05, 0.15])
             if self.verbose:
                 self.debug_org_position.append([x, y])
         else:
             self.con = Convertor((lon, lat))
 
-
     def on_timer(self, data):
         pose3d = self.localization.get_pose3d(self.time)
         if pose3d:
-            if verbose:
+            if self.verbose:
                 (x, y, __), __ = pose3d
                 self.debug_position.append([x, y])
             self.publish("pose3d", pose3d)
@@ -59,8 +56,8 @@ class GpsLocalization(Node):
         # in verbose mode and with --draw parameter: draw a plot
         import matplotlib.pyplot as plt
         x, y = list2xy(self.debug_org_position)
-        plt.plot(x, y, "k.-", label="org_gps")
+        plt.plot(x, y, "k.", label="org_gps")
         x, y = list2xy(self.debug_position)
-        plt.plot(x, y, "r.-", label="kalman")
+        plt.plot(x, y, "r.", label="kalman")
         plt.legend()
         plt.show()
