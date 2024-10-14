@@ -24,6 +24,7 @@ class GpsLocalization(Node):
         self.verbose = False
         self.debug_org_position = []
         self.debug_position = []
+        self.debug_estimated_position = []
 
     def on_nmea_data(self, data):
         lon = data["lon"]
@@ -45,19 +46,27 @@ class GpsLocalization(Node):
             self.con = Convertor((lon, lat))
 
     def on_timer(self, data):
-        pose3d = self.localization.get_pose3d(self.time)
+        estimated_pose3d = self.localization.get_pose3d(self.time)
+        pose3d = self.localization.get_pose3d()
         if pose3d:
             if self.verbose:
                 (x, y, __), __ = pose3d
                 self.debug_position.append([x, y])
             self.publish("pose3d", pose3d)
+        if estimated_pose3d:
+            if self.verbose:
+                (x, y, __), __ = estimated_pose3d
+                self.debug_estimated_position.append([x, y])
+            #self.publish("pose3d", pose3d)
 
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
         import matplotlib.pyplot as plt
         x, y = list2xy(self.debug_org_position)
-        plt.plot(x, y, "k.", label="org_gps")
+        plt.plot(x, y, "k+-", label="org_gps")
         x, y = list2xy(self.debug_position)
-        plt.plot(x, y, "r.", label="kalman")
+        plt.plot(x, y, "rx-", label="kalman")
+        x, y = list2xy(self.debug_estimated_position)
+        plt.plot(x, y, "b.", label="estimation")
         plt.legend()
         plt.show()
