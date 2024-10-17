@@ -10,8 +10,6 @@ import random
 import math
 import localization as lo
 
-#import teachmedijkstra
-
 class TestLocalization(unittest.TestCase):
 
     def test_const_velocity(self):
@@ -79,7 +77,3 @@ class TestLocalization(unittest.TestCase):
     #        (filtered_x, filtered_y, __), __ = pose3d
     #        time += period_timedelta
     #    loc.draw()
-
-if __name__ == '__main__':
-    unittest.main()
-
