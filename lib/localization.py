@@ -43,7 +43,7 @@ class Localization:
                     cas ve vterinach lze ziskat pomoci `time.total_seconds()`
                 gps_err (list of float): chyby jednotlivych souradnic (smerodatne odchylky)
         """
-        print('update_xyz_from_gps:', time, xyz_from_gps, gps_err)
+        #print('update_xyz_from_gps:', time, xyz_from_gps, gps_err)
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
         time_in_seconds, xyz = self.kf.get_last_xyz()
         self.last_time = time
@@ -134,7 +134,6 @@ class Localization:
                 x = []
                 y = []
                 for time, xyz in self.history[drawn[i]]:
-                    print('draw', drawn[i], xyz)
                     x.append(xyz[0])
                     y.append(xyz[1])
                 plt.plot(x, y, colors[i], label = drawn[i])
