@@ -60,7 +60,7 @@ class KalmanFilterLocalization:
         self.angle_filter = AngleLowPassFilter()
         self.scale_filter = FloatLowPassFilter()
 
-    def input(self, xyz, time, variance):
+    def input(self, xyz, time, xyz_err):
         """
             Input of the Kalman filter.
 
@@ -69,6 +69,8 @@ class KalmanFilterLocalization:
                     coordinates
                 time (float): can be in arbitrary units, however, we do it in
                     seconds
+                xyz_err (list of float): `[sx, sy, sz]` ... errors of `xyz`
+                    as standard deviations
         """
         dt = time-self.time_of_last_update
         da = dt*dt/2
@@ -82,9 +84,10 @@ class KalmanFilterLocalization:
                            [0,0,0,0,0,0,0,1,0],
                            [0,0,0,0,0,0,0,0,1]])
         self.AT = self.A.transpose()
-        self.R = np.array([[variance*variance,0,0],
-                           [0,variance*variance,0],
-                           [0,0,variance*variance]])
+        variances = [e*e for e in xyz_err]
+        self.R = np.array([[variances[0],0,0],
+                           [0,variances[1],0],
+                           [0,0,variances[2]]])
         # we work with nine dimensional vector composed of three position
         # coordinates, three velocity coordinates and three acceleration
         # coordinates
