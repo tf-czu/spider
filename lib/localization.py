@@ -32,16 +32,18 @@ class Localization:
 
     def update_xyz_from_gps(self, time, xyz_from_gps, gps_err = None):
         """
-            Zpracuje a zapamatuje si dalsi souradnice ziskane z GPS.
+            Input new position coordinates obtained from GPS.
 
             Args:
-                xyz_from_gps (list of float): poloha [x, y, z] v metrech
-                    odvozena z gps jako projekce do kartezske soustavy souradnic,
-                    kde dve osy jsou tecne k povrchu Zeme a jedna osa je normalni k
-                    povrchu Zeme
-                time (datetime.timedelta): (absolutni) cas;
-                    cas ve vterinach lze ziskat pomoci `time.total_seconds()`
-                gps_err (list of float): chyby jednotlivych souradnic (smerodatne odchylky)
+                xyz_from_gps (list of float): position [x, y, z] in meters
+                    obtained from GPS as its projection into Cartesian
+                    coordinate system with two axes tangential to Earth's
+                    surface and one axis normal to Earth's surface
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
+                gps_err (list of float): error `xyz_from_gps` (as standard
+                    deviations)
         """
         #print('update_xyz_from_gps:', time, xyz_from_gps, gps_err)
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
@@ -54,63 +56,64 @@ class Localization:
 
     def update_orientation(self, time, orientation):
         """
-            Zpracuje a zapamatuje si dalsi orientaci robota v poradi.
+            Input new orientation of the robot.
 
             Args:
-                orientation (list of float): kvaternion
-                time (datetime.timedelta): (absolutni) cas;
-                    cas ve vterinach lze ziskat pomoci `time.total_seconds()`
+                orientation (list of float): orientation of the robot
+                    represented by a quaternion
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
         """
         self.last_orientation = orientation
         
     def update_distance(self, time, data):
         """
-            Zpracuje a zapamatuje si dalsi ujetou vzdalenost robota v poradi.
+            Input distance traveled by the robot.
 
             Args:
-                distance(float): ujeta vzdalenost; muze byt zaporna, pokud
-                    robot couva
-                time (datetime.timedelta): (absolutni) cas;
-                    cas ve vterinach lze ziskat pomoci `time.total_seconds()`
-
-            Returns (list): seznam o dvou polozkach
-                1. seznam tri cisel ... souradnice v metrech
-                2. seznam ctyr cisel ... kvaternion
+                distance(float): distance in meters; 
+                    can be negative if the robot is reversing
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
         """
         # compute xyz from odometry and IMU
-        # TODO if self.last_orientation == None: ...
-        distance = data[0]
-        distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_orientation)
-        xyz_from_imu = [a + b for a, b in zip(self.last_xyz_from_imu, distance_3d)]
-        self.last_xyz_from_imu = xyz_from_imu
-        # compute angle between xyz from IMU and xyz from GPS
-        # and rotate xyz from IMU
-        xyz_from_imu_rotated = self.kf.rotate_xyz_from_imu(xyz_from_imu, time.total_seconds())
-        # insert xyz from odometry and IMU into Kalman filter
-        # (which works primarily with xyz form GPS)
-        self.kf.input_imu(xyz_from_imu_rotated, time.total_seconds(), 10)
-        time_in_seconds, xyz = self.kf.get_last_xyz()
-        self.last_time = time
-        self.last_xyz = xyz
+        if self.last_orientation == None:
+            # with no direction there is no position
+            pass
+        else:
+            distance = data[0]
+            distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_orientation)
+            xyz_from_imu = [a + b for a, b in zip(self.last_xyz_from_imu, distance_3d)]
+            self.last_xyz_from_imu = xyz_from_imu
+            # compute angle between xyz from IMU and xyz from GPS
+            # and rotate xyz from IMU
+            xyz_from_imu_rotated = self.kf.rotate_xyz_from_imu(xyz_from_imu, time.total_seconds())
+            # insert xyz from odometry and IMU into Kalman filter
+            # (which works primarily with xyz form GPS)
+            self.kf.input_imu(xyz_from_imu_rotated, time.total_seconds(), 10)
+            time_in_seconds, xyz = self.kf.get_last_xyz()
+            self.last_time = time
+            self.last_xyz = xyz
 
     def get_pose3d(self, time = None):
         """
-            Vrati extrapolovanou nebo posledni hodnotu pose3d.
+            Returns the last value of `pose3d` or its extrapolation.
 
             Args:
-                time (datetime.timedelta): (absolutni) cas;
-                    cas ve vterinach lze ziskat pomoci `time.total_seconds()`;
+                time (datetime.timedelta): (absolute) time;
+                    if `time == None`:
+                        then the last value of `pose3d` is returned,
+                    else:
+                        the extrapolation of `pose3d` is returned
 
-            Returns (list): seznam o dvou polozkach
-
-                1. seznam tri cisel ... souradnice v metrech vyjadrujici polohu
-                    robota;
-                    pokud je zadana hodnota parametru `time`, tak vrati
-                    extrapolovanou hodnotu pozice v tomto case;
-                    pokud `time==None`, potom vrati posledni vypoctenou hodnotu
-                    pozice
-                2. seznam ctyr cisel ... kvaternion vyjadrujici orientaci robota;
-                    pokud neni zjistitelny, vrati se `None`;
+            Returns (list): list with two items:
+                1. list with three floats ... coordinates in meters
+                    representing the position of the robot;
+                2. list with four floats ... quaternion representing the
+                    orientation of the robot;
+                    if it cannot be computed, `None` is returned
         """
         # TODO kvaternion neni extrapolovany, ale vraci se posledni hodnota
         # ziskana z IMU
@@ -124,7 +127,10 @@ class Localization:
 
     def draw(self):
         """
-            Draw a plot.
+            Draw a plot from values stored in the `history` attribute.
+
+            (If the instance has been created with the parameter
+                `remember_history = True`.)
         """
         if self.history != None:
             import matplotlib.pyplot as plt
