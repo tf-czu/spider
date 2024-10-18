@@ -1,6 +1,6 @@
 import numpy as np
 import osgar.lib.quaternion as quaternion
-from lib.kalman_localization import KalmanFilterLocalization
+from lib.kalman import KalmanFilterLocalization
 
 class Localization:
     def __init__(self, remember_history = False):

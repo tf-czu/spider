@@ -8,7 +8,7 @@ import unittest
 import datetime
 import random
 import math
-import kalman_localization as kalloc
+import kalman
 
 class TestKalmanLocalization(unittest.TestCase):
 
@@ -16,7 +16,7 @@ class TestKalmanLocalization(unittest.TestCase):
         # otestuje, zda kalmanuv filtr dokonverguje po 20ti krocich k hodnote
         # `[10, 10, 10]`, pokud mu bude zadana najdriv hodnota `[0, 0, 0]` a
         # potom hodnoty `[10, 10, 10]`
-        kf = kalloc.KalmanFilterLocalization()
+        kf = kalman.KalmanFilterLocalization()
         time = datetime.timedelta(seconds = 0)
         xyz = [0, 0, 0]
         xyz_err = [1, 1, 1]
