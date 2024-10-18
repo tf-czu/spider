@@ -12,7 +12,7 @@ import localization as lo
 
 class TestLocalization(unittest.TestCase):
 
-    def test_const_velocity(self):
+    def test_uniform_linear_motion(self):
         # Simuluje rovnomerny primocary pohyb ve smeru danem vektorem rychlosti
         # `velocity`
         time = datetime.timedelta(seconds = 0)
@@ -33,6 +33,66 @@ class TestLocalization(unittest.TestCase):
                 # jako `velocity[0]` a `velocity[1]`
                 self.assertAlmostEqual(velocity[1]*filtered_x, velocity[0]*filtered_y, places = 7)
                 gps_xyz = [gps_xyz[i] + period*velocity[i] for i in range(len(gps_xyz))]
+        #loc.draw()
+
+    def test_extrapolation_in_uniform_linear_motion(self):
+        # Simuluje rovnomerny primocary pohyb ve smeru danem vektorem rychlosti
+        # `velocity`
+        loc = lo.Localization(remember_history = True)
+        gps_err = [0.1, 0.1, 0.1]
+        freq = 10 # Hz
+        period = 1 / freq
+        period_timedelta = datetime.timedelta(seconds = period)
+        num_steps = 41 # v kazdem kroku zjistujeme (extrapolovanou) polohu
+        gps_step = 10 # ale GPS souradnice prijdou v kazdem 10. kroku
+        velocity = [1, 2, 0]
+        for k in range(num_steps):
+            if k == 0:
+                time = datetime.timedelta(seconds = 0)
+            else:
+                time += period_timedelta
+            if k % gps_step == 0:
+                if k == 0:
+                    xyz_from_gps = [0, 0, 0]
+                else:
+                    xyz_from_gps = [xyz_from_gps[i] + velocity[i]*period*gps_step for i in range(3)]
+                loc.update_xyz_from_gps(time, xyz_from_gps, gps_err = gps_err)
+            pose3d = loc.get_pose3d(time)
+            (filtered_x, filtered_y, __), __ = pose3d
+            # otestuj, zda `filtered_x` a `filtered_y` jsou ve stejnem pomeru,
+            # jako `velocity[0]` a `velocity[1]`
+            self.assertAlmostEqual(velocity[1]*filtered_x, velocity[0]*filtered_y, places = 7)
+            #print(k, time, xyz_from_gps, pose3d)
+        #loc.draw()
+
+    def test_extrapolation_on_square(self):
+        # Simuluje pohyb, ktery je skakanim po souradnicich ctverce
+        loc = lo.Localization(remember_history = True)
+        gps_err = [0.1, 0.1, 0.1]
+        freq = 10 # Hz
+        period = 1 / freq
+        period_timedelta = datetime.timedelta(seconds = period)
+        num_steps = 41 # v kazdem kroku zjistujeme (extrapolovanou) polohu
+        gps_step = 10 # ale GPS souradnice prijdou v kazdem 10. kroku
+        gps_step_counter = 0
+        for k in range(num_steps):
+            if k == 0:
+                time = datetime.timedelta(seconds = 0)
+            else:
+                time += period_timedelta
+            if k % gps_step == 0:
+                if gps_step_counter % 4 == 0:
+                    xyz_from_gps = [0, 0, 0]
+                elif gps_step_counter % 4 == 1:
+                    xyz_from_gps = [1, 0, 0]
+                elif gps_step_counter % 4 == 2:
+                    xyz_from_gps = [1, 1, 0]
+                elif gps_step_counter % 4 == 3:
+                    xyz_from_gps = [0, 1, 0]
+                gps_step_counter += 1
+                loc.update_xyz_from_gps(time, xyz_from_gps, gps_err = gps_err)
+            pose3d = loc.get_pose3d(time)
+            #print(k, time, xyz_from_gps, pose3d)
         #loc.draw()
 
     def test_circular_trajectory(self):
