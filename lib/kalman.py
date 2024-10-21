@@ -17,33 +17,18 @@ class KalmanFilterLocalization:
             Args:
                 position (numpy.array): the initial position;
                     numpy.array([0, 0, 0]) by default
-                start_time (float): can be in arbitrary units, however, we do
-                    it in seconds
+                start_time (float): start time in seconds (can be in arbitrary
+                    units, though); 0 by default
                 P (numpy.array): matrix of variances and covariances;
-                    by default, variances are 2 and covariances are 0
+                    by default: variances are 2 and covariances are 0
         """
-        # First three coordinates correspond to x,y,z positions,
-        #   second three to x,y,z velocities
-        self.position = position
-        # !!! MP (24/09/25): Zmenil jsem `velocity` a `acceleration` z
-        #       `[[0,0,0]]` na `[0,0,0]`.
-        #   Pri vypisu hodnot `velocity` se totiz zpocatku stridave vyskytovaly
-        #       hodnoty `[[0,0,0]]` a `[0,0,0]`, coz jednak vypadalo divne a
-        #       jednak to delalo problemy v metode `get_xyz_estimate()`,
-        #       kde se pokazde vracel jiny typ vysledku a take v metode
-        #       `calculate_angle()`, kde se zase za behu menil typ vstupnich
-        #       parametru.
-        #   Zda se, ze to ted funguje spravne.
-        #self.velocity = np.array([[0,0,0]]) # initial velocity
-        #self.acceleration = np.array([[0,0,0]]) # initial acceleration
+        self.position = position # initial position
         self.velocity = np.array([0,0,0]) # initial velocity
         self.acceleration = np.array([0,0,0]) # initial acceleration
         self.number_of_IMU_measurements = 0
         self.time_of_last_update = start_time
         # Matrices used in Kalman filter
         self.P = P
-        #self.v = 2 # variance of the primary sensor
-        #self.secondary_v = 8 # variance of the secondary sensor
         self.A = np.identity(9)
         self.AT = self.A.transpose()
         self.Q = np.array([[0.1,0,0,0.1,0,0,0.1,0,0],
@@ -57,6 +42,8 @@ class KalmanFilterLocalization:
                            [0,0,0.1,0,0,0.2,0,0,0.2]])
         self.H = np.array([[1,0,0,0,0,0,0,0,0],[0,1,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0]])
         self.HT = self.H.transpose()
+        # nasledujici filtry jsou pouzity, pokud je vstupem i poloha z IMU;
+        # tyto filtry slouzi k odhadu ulhu mezi polohami z GPS a polohami z IMU
         #self.angle_filter = AngleLowPassFilter()
         #self.scale_filter = FloatLowPassFilter()
 
@@ -65,12 +52,12 @@ class KalmanFilterLocalization:
             Input of the Kalman filter.
 
             Args:
-                xyz (list of float): position as `[x, y, z]`
-                    coordinates
-                time (float): can be in arbitrary units, however, we do it in
-                    seconds
-                xyz_err (list of float): `[sx, sy, sz]` ... errors of `xyz`
-                    as standard deviations
+
+                xyz (list of float): position `[x, y, z]` in meters
+                time (float): time in seconds (can be in arbitrary units,
+                    though, see the constructor)
+                xyz_err (list of float): error `[s_x, s_y, s_z]` of `xyz`
+                    (as standard deviations, in meters)
         """
         dt = time-self.time_of_last_update
         da = dt*dt/2
@@ -88,7 +75,7 @@ class KalmanFilterLocalization:
         self.R = np.array([[variances[0],0,0],
                            [0,variances[1],0],
                            [0,0,variances[2]]])
-        # we work with nine dimensional vector composed of three position
+        # we work with nine-dimensional vector composed of three position
         # coordinates, three velocity coordinates and three acceleration
         # coordinates
         estPos = self.A @ np.concatenate((self.position, self.velocity, self.acceleration), axis = None)
@@ -106,25 +93,27 @@ class KalmanFilterLocalization:
 
     def get_last_xyz(self):
         """
-            Returns (float, [float, float, float]): time in seconds, coordinates of the last computed position
+            Returns (float, [float, float, float]): time in seconds,
+                coordinates of the last computed position
         """
         return (self.time_of_last_update, self.position)
 
     def get_xyz_estimate(self, time):
         """
-            Extrapolates the position in the given (future) time.
+            Extrapolates the position vector in the given (future) time.
 
-            The extrapolation is done by the last velocity vector and
+            The extrapolation is computed from the last position, velocity, and
                 acceleration vector.
 
             Args:
-                time (float): time in future; in seconds
+                time (float): time (in future) in seconds (can be in arbitrary
+                    units, though, see the constructor)
 
-            Returns (numpy.array): estimated (extrapolated) coordinates of the
-                position at the given time
+            Returns (numpy.array): estimated (extrapolated) coordinates
+                `[x, y, z]` of the position at the given time
         """
         dt = time - self.time_of_last_update
-        # original version, does not work with acceleration
+        # original version, did not work with acceleration
         #return self.position + (dt)*self.velocity
         return self.position + self.velocity*dt + self.acceleration*dt*dt/2
 
@@ -132,16 +121,24 @@ class KalmanFilterLocalization:
         """
             Extrapolates the velocity vector in the given (future) time.
 
-            The extrapolation is done by the last acceleration vector.
+            The extrapolation is computed from the last velocity and
+                acceleration vector.
 
             Args:
-                time (float): time in future
+                time (float): time (in future) in seconds (can be in arbitrary
+                    units, though, see the constructor)
 
-            Returns (numpy.array): estimated (extrapolated) velocity vector at
-                the given time
+            Returns (numpy.array): estimated (extrapolated) coordinates
+                `[v_x, v_y, v_z]` of the velocity at the given time
         """
         dt = time - self.time_of_last_update
         return self.velocity + self.acceleration*dt
+
+# 21.10.2024
+# Zbytek kodu je zakomentovany.
+# Byl pouzivany, dokud jsme jako vstup Kalmanova filtru pouzivali i polohu z IMU.
+# Ted je kod zhednoduseny tak, ze se jako vstup uvazuje pouze poloha z GPS.
+# Az k tomu zase pridame i polohu z IMU, tak tento kod nejspis znovu pouzijeme.
 
 #    # TODO sloucit input_imu a rotate_xyz_from_imu
 #    def input_imu(self, xyz, time, variance):
