@@ -6,12 +6,11 @@ class Localization:
     def __init__(self, remember_history = False):
         """
             Args:
-                remember_history (bool): if `True`, input values will be stored
-                    to `history` attribute;
-                    `draw()` method then can be called to draw a plot;
-                    for debugging purposes
+                remember_history (bool): for debugging purposes;
+                    if `True`, input values will be stored to the `history`
+                    attribute;
+                    method `draw()` then can be called to draw a plot
         """
-        self.kf_xyz = KalmanFilterLocalization()
         self.kf = KalmanFilterLocalization()
         if remember_history:
             self.history = {
@@ -35,15 +34,15 @@ class Localization:
             Input new position coordinates obtained from GPS.
 
             Args:
-                xyz_from_gps (list of float): position [x, y, z] in meters
-                    obtained from GPS as its projection into Cartesian
-                    coordinate system with two axes tangential to Earth's
-                    surface and one axis normal to Earth's surface
                 time (datetime.timedelta): (absolute) time
                     (time in seconds can be obtained by calling
                     `time.total_seconds()`)
-                gps_err (list of float): error `xyz_from_gps` (as standard
-                    deviations)
+                xyz_from_gps (list of float): position `[x, y, z]` in meters
+                    obtained from GPS as its projection into Cartesian
+                    coordinate system with two axes tangential to Earth's
+                    surface and one axis normal to Earth's surface
+                gps_err (list of float): error `[s_x, s_y, s_z]` of
+                    `xyz_from_gps` (as standard deviations, in meters)
         """
         #print('update_xyz_from_gps:', time, xyz_from_gps, gps_err)
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
@@ -59,11 +58,11 @@ class Localization:
             Input new orientation of the robot.
 
             Args:
-                orientation (list of float): orientation of the robot
-                    represented by a quaternion
                 time (datetime.timedelta): (absolute) time
                     (time in seconds can be obtained by calling
                     `time.total_seconds()`)
+                orientation (list of float): orientation of the robot
+                    represented by a quaternion
         """
         self.last_orientation = orientation
         
@@ -72,11 +71,11 @@ class Localization:
             Input distance traveled by the robot.
 
             Args:
-                distance(float): distance in meters; 
-                    can be negative if the robot is reversing
                 time (datetime.timedelta): (absolute) time
                     (time in seconds can be obtained by calling
                     `time.total_seconds()`)
+                distance(float): distance in meters; 
+                    can be negative if the robot is reversing
         """
         # compute xyz from odometry and IMU
         if self.last_orientation == None:
@@ -118,11 +117,11 @@ class Localization:
         # TODO kvaternion neni extrapolovany, ale vraci se posledni hodnota
         # ziskana z IMU
         if time == None:
-            result = [ self.last_xyz, self.last_orientation ]
+            result = [self.last_xyz, self.last_orientation]
         else:
-            result = [ self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation ]
+            result = [self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation]
         if self.history != None:
-            self.history['pose3d'].append( (time, result[0]) )
+            self.history['pose3d'].append((time, result[0]))
         return result
 
     def draw(self):
