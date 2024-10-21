@@ -8,7 +8,7 @@ import unittest
 import datetime
 import random
 import math
-import localization as lo
+import lib.localization as lo
 
 class TestLocalization(unittest.TestCase):
 
