@@ -18,7 +18,9 @@
 	      "driver": "gps_loc:GpsLocalization",
 	      "in": ["nmea_data"],
 	      "out": ["pose3d"],
-	      "init":{}
+	      "init":{
+            "gps_sd": [0.03, 0.03, 0.09]
+          }
       },
        "oak_d": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
