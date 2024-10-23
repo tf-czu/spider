@@ -44,7 +44,6 @@ class Localization:
                 gps_err (list of float): error `[s_x, s_y, s_z]` of
                     `xyz_from_gps` (as standard deviations, in meters)
         """
-        #print('update_xyz_from_gps:', time, xyz_from_gps, gps_err)
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
         time_in_seconds, xyz = self.kf.get_last_xyz()
         self.last_time = time
@@ -52,49 +51,6 @@ class Localization:
         if self.history != None:
             self.history['xyz from gps'].append((time, xyz_from_gps))
             self.history['xyz'].append((time, xyz))
-
-    def update_orientation(self, time, orientation):
-        """
-            Input new orientation of the robot.
-
-            Args:
-                time (datetime.timedelta): (absolute) time
-                    (time in seconds can be obtained by calling
-                    `time.total_seconds()`)
-                orientation (list of float): orientation of the robot
-                    represented by a quaternion
-        """
-        self.last_orientation = orientation
-        
-    def update_distance(self, time, data):
-        """
-            Input distance traveled by the robot.
-
-            Args:
-                time (datetime.timedelta): (absolute) time
-                    (time in seconds can be obtained by calling
-                    `time.total_seconds()`)
-                distance(float): distance in meters; 
-                    can be negative if the robot is reversing
-        """
-        # compute xyz from odometry and IMU
-        if self.last_orientation == None:
-            # with no direction there is no position
-            pass
-        else:
-            distance = data[0]
-            distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_orientation)
-            xyz_from_imu = [a + b for a, b in zip(self.last_xyz_from_imu, distance_3d)]
-            self.last_xyz_from_imu = xyz_from_imu
-            # compute angle between xyz from IMU and xyz from GPS
-            # and rotate xyz from IMU
-            xyz_from_imu_rotated = self.kf.rotate_xyz_from_imu(xyz_from_imu, time.total_seconds())
-            # insert xyz from odometry and IMU into Kalman filter
-            # (which works primarily with xyz form GPS)
-            self.kf.input_imu(xyz_from_imu_rotated, time.total_seconds(), 10)
-            time_in_seconds, xyz = self.kf.get_last_xyz()
-            self.last_time = time
-            self.last_xyz = xyz
 
     def get_pose3d(self, time = None):
         """
@@ -124,23 +80,3 @@ class Localization:
             self.history['pose3d'].append((time, result[0]))
         return result
 
-    def draw(self):
-        """
-            Draw a plot from values stored in the `history` attribute.
-
-            (If the instance has been created with the parameter
-                `remember_history = True`.)
-        """
-        if self.history != None:
-            import matplotlib.pyplot as plt
-            drawn = ['xyz from gps', 'xyz', 'pose3d']
-            colors = ['r.', 'g+-', 'bx', 'c+', 'mx', 'y.']
-            for i in range(len(drawn)):
-                x = []
-                y = []
-                for time, xyz in self.history[drawn[i]]:
-                    x.append(xyz[0])
-                    y.append(xyz[1])
-                plt.plot(x, y, colors[i], label = drawn[i])
-                plt.legend()
-            plt.show()

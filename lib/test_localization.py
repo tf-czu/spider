@@ -33,7 +33,6 @@ class TestLocalization(unittest.TestCase):
                 # jako `velocity[0]` a `velocity[1]`
                 self.assertAlmostEqual(velocity[1]*filtered_x, velocity[0]*filtered_y, places = 7)
                 gps_xyz = [gps_xyz[i] + period*velocity[i] for i in range(len(gps_xyz))]
-        #loc.draw()
 
     def test_extrapolation_in_uniform_linear_motion(self):
         # Simuluje rovnomerny primocary pohyb ve smeru danem vektorem rychlosti
@@ -62,8 +61,6 @@ class TestLocalization(unittest.TestCase):
             # otestuj, zda `filtered_x` a `filtered_y` jsou ve stejnem pomeru,
             # jako `velocity[0]` a `velocity[1]`
             self.assertAlmostEqual(velocity[1]*filtered_x, velocity[0]*filtered_y, places = 7)
-            #print(k, time, xyz_from_gps, pose3d)
-        #loc.draw()
 
     def test_extrapolation_on_square(self):
         # Simuluje pohyb, ktery je skakanim po souradnicich ctverce
@@ -92,8 +89,6 @@ class TestLocalization(unittest.TestCase):
                 gps_step_counter += 1
                 loc.update_xyz_from_gps(time, xyz_from_gps, gps_err = gps_err)
             pose3d = loc.get_pose3d(time)
-            #print(k, time, xyz_from_gps, pose3d)
-        #loc.draw()
 
     def test_circular_trajectory(self):
         # Simuluje rovnomerny pohyb po kruznici
@@ -113,27 +108,4 @@ class TestLocalization(unittest.TestCase):
             self.assertAlmostEqual(gps_xyz[0], filtered_x, places = 1)
             self.assertAlmostEqual(gps_xyz[1], filtered_y, places = 1)
             angle += angular_velocity * period
-        #loc.draw()
 
-    #def test_circular_trajectory_with_extrapolation(self):
-    #    # Simuluje rovnomerny pohyb po kruznici
-    #    time = datetime.timedelta(seconds = 0)
-    #    gps_err = [0.1, 0.1, 0.1]
-    #    freq = 10 # Hz
-    #    period = 1 / freq
-    #    period_timedelta = datetime.timedelta(seconds = period)
-    #    angle = 0
-    #    angular_velocity = 1 # rad / s
-    #    num_steps = 50
-    #    gps_step = 10 # GPS bude aktualizovana v kazdem 5. kroku
-    #    loc = lo.Localization(remember_history = True)
-    #    for k in range(num_steps):
-    #        if k % gps_step == 0:
-    #            angle = angular_velocity * time.total_seconds()
-    #            print('angle:', angle)
-    #            gps_xyz = [math.cos(angle), math.sin(angle), 0]
-    #            loc.update_xyz_from_gps(time, gps_xyz, gps_err = gps_err)
-    #        pose3d = loc.get_pose3d(time)
-    #        (filtered_x, filtered_y, __), __ = pose3d
-    #        time += period_timedelta
-    #    loc.draw()

@@ -65,7 +65,3 @@ class TestKalmanLocalization(unittest.TestCase):
                 relative_error[i] = num / den
             self.assertLess(relative_error[i], 0.05) # aby relativni chyba byla mensi nez 5%
 
-
-
-
-
