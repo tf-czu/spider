@@ -63,6 +63,7 @@ class LocalizationNode(Node):
         x, y = list2xy(self.debug_estimated_position)
         plt.plot(x, y, "b.", label="estimation")
         plt.legend()
+        plt.axis('equal')
         plt.show()
 
 
