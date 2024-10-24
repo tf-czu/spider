@@ -2,9 +2,16 @@
     TODO
 """
 
+import math
+import collections
+
 from osgar.node import Node
 from osgar.lib.route import Convertor
 from lib.localization import Localization
+
+
+Pose2d = collections.namedtuple("Pose2d", ("x", "y", "heading"))
+
 
 def list2xy(data):
     x = [coord[0] for coord in data]
@@ -84,3 +91,31 @@ class GpsLocalization(LocalizationNode):
 class GpsOdoLocalization(LocalizationNode):
     def __init__(self, config, bus):
         super().__init__(config, bus)
+
+        self.last_odom = None
+
+    def on_odom(self, data):  # pose2d format required
+        x, y, heading = data
+        odom = Pose2d(x / 1000.0, y / 1000.0, math.radians(heading / 100.0))
+        if self.last_odom is not None:
+            dist = math.hypot(odom.x - self.last_odom.x, odom.y - self.last_odom.y)
+            direction = ((odom.x - self.last_odom.x) * math.cos(self.last_odom.heading) +
+                         (odom.y - self.last_odom.y) * math.sin(self.last_odom.heading))
+            if direction < 0:
+                dist = -dist
+        else:
+            dist = 0.0
+        self.last_odom = odom
+
+        # self.localization.update_dist(dist)
+        pose3d = self.localization.get_pose3d()
+        if pose3d:
+            self.publish("pose3d", pose3d)
+            if self.verbose:  # verbose/debug mode
+                xyz, __ = pose3d
+                if xyz is not None:
+                    self.debug_kalman_position.append([xyz[0], xyz[1]])
+
+    def on_orientation(self, data):
+        # self.localization.update_orientation(data)
+        pass
