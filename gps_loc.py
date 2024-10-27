@@ -19,6 +19,7 @@ def list2xy(data):
     return x, y
 
 class LocalizationNode(Node):
+
     def __init__(self, config, bus):
         super().__init__(config, bus)
         bus.register('pose3d')  # register a stream to be published
@@ -38,7 +39,7 @@ class LocalizationNode(Node):
         self.debug_counter += 1
         if self.debug_counter % 20 != 0:
             return
-        print('on_nmea_data:', data)
+        #print('on_nmea_data:', data)
         lon = data["lon"]
         lat = data["lat"]
         assert data["lon_dir"] == "E"
@@ -54,10 +55,17 @@ class LocalizationNode(Node):
             self.localization.update_xyz_from_gps(self.time, [x, y, z], gps_err = self.gps_sd)
             if self.verbose:
                 self.debug_org_position.append([x, y])
-
         else:
             self.con = Convertor((lon, lat))
-
+        if self.verbose:
+            #kalman_pose3d = self.localization.get_pose3d()  # get last position from kalman
+            #if kalman_pose3d:
+            #    xyz, __ = kalman_pose3d
+            #    if xyz is not None:
+            #        self.debug_kalman_position.append([xyz[0], xyz[1]])
+            xyz = self.localization.last_xyz
+            if xyz is not None:
+                self.debug_kalman_position.append([xyz[0], xyz[1]])
 
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
@@ -72,33 +80,31 @@ class LocalizationNode(Node):
         plt.axis('equal')
         plt.show()
 
-
-class GpsLocalization(LocalizationNode):
-    def __init__(self, config, bus):
-        super().__init__(config, bus)
-
-    def on_nmea_data(self, data):
-        super().on_nmea_data(data)
-        if self.verbose:
-            kalman_pose3d = self.localization.get_pose3d()  # get last position from kalman
-            if kalman_pose3d:
-                xyz, __ = kalman_pose3d
-                if xyz is not None:
-                    self.debug_kalman_position.append([xyz[0], xyz[1]])
-
-    def on_timer(self, data):
-        estimated_pose3d = self.localization.get_pose3d(self.time)
-        if estimated_pose3d:
-            self.publish("pose3d", estimated_pose3d)
-            if self.verbose:
-                (x, y, __), __ = estimated_pose3d
-                self.debug_estimated_position.append([x, y])
-
+#class GpsLocalization(LocalizationNode):
+#    def __init__(self, config, bus):
+#        super().__init__(config, bus)
+#
+#    def on_nmea_data(self, data):
+#        super().on_nmea_data(data)
+#        if self.verbose:
+#            kalman_pose3d = self.localization.get_pose3d()  # get last position from kalman
+#            if kalman_pose3d:
+#                xyz, __ = kalman_pose3d
+#                if xyz is not None:
+#                    self.debug_kalman_position.append([xyz[0], xyz[1]])
+#
+#    def on_timer(self, data):
+#        estimated_pose3d = self.localization.get_pose3d(self.time)
+#        if estimated_pose3d:
+#            self.publish("pose3d", estimated_pose3d)
+#            if self.verbose:
+#                (x, y, __), __ = estimated_pose3d
+#                self.debug_estimated_position.append([x, y])
 
 class GpsOdoLocalization(LocalizationNode):
+
     def __init__(self, config, bus):
         super().__init__(config, bus)
-
         self.last_odom = None
 
     def on_odom(self, data):  # pose2d format required
@@ -114,24 +120,25 @@ class GpsOdoLocalization(LocalizationNode):
             dist = 0.0
         self.last_odom = odom
 
+        self.localization.update_distance(self.time, dist)
+
         #print('on_odom:', dist)
 
         # self.localization.update_dist(dist)
-        pose3d = self.localization.get_pose3d()
-        if pose3d:
-            self.publish("pose3d", pose3d)
-            if self.verbose:  # verbose/debug mode
-                xyz, __ = pose3d
-                if xyz is not None:
-                    self.debug_kalman_position.append([xyz[0], xyz[1]])
+        #pose3d = self.localization.get_pose3d()
+        #if pose3d:
+        #    self.publish("pose3d", pose3d)
+        #    if self.verbose:  # verbose/debug mode
+        #        xyz, __ = pose3d
+        #        if xyz is not None:
+        #            self.debug_kalman_position.append([xyz[0], xyz[1]])
 
     def on_orientation(self, data):
-        # self.localization.update_orientation(data)
         #print('on_orientation:', data)
-        pass
+        self.localization.update_orientation(self.time, data)
 
     def on_timer(self, data):
-        print('on_timer')
+        #print('on_timer')
         estimated_pose3d = self.localization.get_pose3d(self.time)
         if estimated_pose3d:
             self.publish("pose3d", estimated_pose3d)

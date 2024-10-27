@@ -22,6 +22,7 @@ class Localization:
             self.history = None
         # posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
+        self.last_xyz_estimate = None
         # cas posledni polohy spocitane Kalmanovym filtrem
         self.last_time = None
         # posledni poloha ziskana z odometrie a IMU
@@ -48,9 +49,57 @@ class Localization:
         time_in_seconds, xyz = self.kf.get_last_xyz()
         self.last_time = time
         self.last_xyz = xyz
+        self.last_xyz_estimate = xyz
         if self.history != None:
             self.history['xyz from gps'].append((time, xyz_from_gps))
             self.history['xyz'].append((time, xyz))
+
+    def update_orientation(self, time, orientation):
+        """
+            Input new orientation of the robot.
+
+            Args:
+                time (datetime.timedelta): (absolute) time
+                orientation (list of float): orientation of the robot
+                    represented by a quaternion
+        """
+        self.last_orientation = orientation
+        
+    def update_distance(self, time, distance):
+        """
+            Input distance traveled by the robot.
+
+            Args:
+                time (datetime.timedelta): (absolute) time
+                distance(float): distance in meters; 
+                    can be negative if the robot is reversing
+        """
+        # compute xyz from odometry and IMU
+        if self.last_orientation == None:
+            # with no direction there is no position
+            pass
+        else:
+            velocity = self.kf.velocity
+            for i in range(len(self.last_xyz_estimate)):
+                #self.last_xyz_estimate[i] += velocity[i] * distance
+                # !!! TODO !!! absolutni hodnota !!!
+                self.last_xyz_estimate[i] += velocity[i] * abs(distance)
+
+
+
+
+            #distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_orientation)
+            #xyz_from_imu = [a + b for a, b in zip(self.last_xyz_from_imu, distance_3d)]
+            #self.last_xyz_from_imu = xyz_from_imu
+            ## compute angle between xyz from IMU and xyz from GPS
+            ## and rotate xyz from IMU
+            #xyz_from_imu_rotated = self.kf.rotate_xyz_from_imu(xyz_from_imu, time.total_seconds())
+            ## insert xyz from odometry and IMU into Kalman filter
+            ## (which works primarily with xyz form GPS)
+            #self.kf.input_imu(xyz_from_imu_rotated, time.total_seconds(), 10)
+            #time_in_seconds, xyz = self.kf.get_last_xyz()
+            #self.last_time = time
+            #self.last_xyz = xyz
 
     def get_pose3d(self, time = None):
         """
@@ -70,6 +119,10 @@ class Localization:
                     orientation of the robot;
                     if it cannot be computed, `None` is returned
         """
+        if self.last_xyz_estimate is None:
+            return None
+        else:
+            return [self.last_xyz_estimate, self.last_orientation]
         # TODO kvaternion neni extrapolovany, ale vraci se posledni hodnota
         # ziskana z IMU
         if time == None:

@@ -111,3 +111,20 @@ class KalmanFilterLocalization:
         dt = time - self.time_of_last_update
         return self.position + self.velocity*dt + self.acceleration*dt*dt/2
 
+    def get_velocity_estimate(self, time):
+        """
+            Extrapolates the velocity vector in the given (future) time.
+
+            The extrapolation is computed from the last velocity and
+                acceleration vector.
+
+            Args:
+                time (float): time (in future) in seconds (can be in arbitrary
+                    units, though, see the constructor)
+
+            Returns (numpy.array): estimated (extrapolated) coordinates
+                `[v_x, v_y, v_z]` of the velocity at the given time
+        """
+        dt = time - self.time_of_last_update
+        return self.velocity + self.acceleration*dt
+
