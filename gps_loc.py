@@ -32,7 +32,13 @@ class LocalizationNode(Node):
         self.debug_kalman_position = []
         self.debug_estimated_position = []
 
+        self.debug_counter = 0
+
     def on_nmea_data(self, data):
+        self.debug_counter += 1
+        if self.debug_counter % 20 != 0:
+            return
+        print('on_nmea_data:', data)
         lon = data["lon"]
         lat = data["lat"]
         assert data["lon_dir"] == "E"
@@ -108,6 +114,8 @@ class GpsOdoLocalization(LocalizationNode):
             dist = 0.0
         self.last_odom = odom
 
+        #print('on_odom:', dist)
+
         # self.localization.update_dist(dist)
         pose3d = self.localization.get_pose3d()
         if pose3d:
@@ -119,4 +127,15 @@ class GpsOdoLocalization(LocalizationNode):
 
     def on_orientation(self, data):
         # self.localization.update_orientation(data)
+        #print('on_orientation:', data)
         pass
+
+    def on_timer(self, data):
+        print('on_timer')
+        estimated_pose3d = self.localization.get_pose3d(self.time)
+        if estimated_pose3d:
+            self.publish("pose3d", estimated_pose3d)
+            if self.verbose:
+                (x, y, __), __ = estimated_pose3d
+                self.debug_estimated_position.append([x, y])
+

@@ -1,4 +1,5 @@
 #python3 -m osgar.replay --module localization ./data-240708_064931.log  --config ./configs/test-gps-loc.json -F
 #python3 -m osgar.replay --module localization ./data-240708_064931.log  --config ./configs/test-gps-loc.json -F --verbose --draw
 #python3 -m osgar.replay --module localization --config ./configs/test-gps-loc.json -F --verbose --draw $*
-python3 -m osgar.replay --module localization --config ./configs/test-gps-odo-loc.json -F --verbose --draw $*
+#python3 -m osgar.replay --module localization --config ./configs/test-gps-odo-loc.json -F --verbose --draw $*
+python3 -m osgar.replay --module localization --config ./configs/test-gps-odo-loc.json -F --verbose $*
