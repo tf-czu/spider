@@ -4,23 +4,8 @@ import osgar.lib.quaternion as quaternion
 from lib.kalman import KalmanFilterLocalization
 
 class Localization:
-    def __init__(self, remember_history = False):
-        """
-            Args:
-                remember_history (bool): for debugging purposes;
-                    if `True`, input values will be stored to the `history`
-                    attribute;
-                    method `draw()` then can be called to draw a plot
-        """
+    def __init__(self):
         self.kf = KalmanFilterLocalization()
-        if remember_history:
-            self.history = {
-                    'xyz from gps': [], # kartezske souradnice z GPS
-                    'xyz': [], # kartezske souradnice vypocitane Kalmanovym filtrem
-                    'pose3d': [], # navratove hodnoty
-                }
-        else:
-            self.history = None
         # posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
         self.extrapolated_xyz = None
@@ -53,6 +38,7 @@ class Localization:
         # extrapolace: nastaveni pocatecni polohy
         self.extrapolated_xyz = np.array(xyz)
         # extrapolace: nastaveni pocatecniho smeru
+        # TODO nastavit pocatecni smer podle vektoru rychlosti z Kalmanova filtru
         if self.last_xyz is None:
             self.extrapolation_direction = np.array([0, 0, 0])
         else:
@@ -62,10 +48,6 @@ class Localization:
         
         self.last_time = time
         self.last_xyz = xyz
-
-        if self.history != None:
-            self.history['xyz from gps'].append((time, xyz_from_gps))
-            self.history['xyz'].append((time, xyz))
 
     def update_orientation(self, time, orientation):
         """
@@ -151,7 +133,5 @@ class Localization:
             result = [self.last_xyz, self.last_orientation]
         else:
             result = [self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation]
-        if self.history != None:
-            self.history['pose3d'].append((time, result[0]))
         return result
 
