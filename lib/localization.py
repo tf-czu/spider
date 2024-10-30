@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import osgar.lib.quaternion as quaternion
 from lib.kalman import KalmanFilterLocalization
 
@@ -22,7 +23,8 @@ class Localization:
             self.history = None
         # posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
-        self.last_xyz_estimate = None
+        self.extrapolated_xyz = None
+        self.extrapolation_start_direction = self.kf.velocity
         # cas posledni polohy spocitane Kalmanovym filtrem
         self.last_time = None
         # posledni poloha ziskana z odometrie a IMU
@@ -47,9 +49,20 @@ class Localization:
         """
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
         time_in_seconds, xyz = self.kf.get_last_xyz()
+
+        # extrapolace: nastaveni pocatecni polohy
+        self.extrapolated_xyz = np.array(xyz)
+        # extrapolace: nastaveni pocatecniho smeru
+        if self.last_xyz is None:
+            self.extrapolation_direction = np.array([0, 0, 0])
+        else:
+            direction_vector = np.array(xyz) - np.array(self.last_xyz)
+            direction = direction_vector / np.linalg.norm(direction_vector)
+            self.extrapolation_direction = direction
+        
         self.last_time = time
         self.last_xyz = xyz
-        self.last_xyz_estimate = xyz
+
         if self.history != None:
             self.history['xyz from gps'].append((time, xyz_from_gps))
             self.history['xyz'].append((time, xyz))
@@ -74,16 +87,25 @@ class Localization:
                 distance(float): distance in meters; 
                     can be negative if the robot is reversing
         """
-        # compute xyz from odometry and IMU
-        if self.last_orientation == None:
-            # with no direction there is no position
-            pass
-        else:
-            velocity = self.kf.velocity
-            for i in range(len(self.last_xyz_estimate)):
-                #self.last_xyz_estimate[i] += velocity[i] * distance
-                # !!! TODO !!! absolutni hodnota !!!
-                self.last_xyz_estimate[i] += velocity[i] * abs(distance)
+        # !!! TODO !!! `distance` je tu v absolutni hodnote !!!
+        self.extrapolated_xyz += abs(distance) * self.extrapolation_direction
+
+
+
+        ## compute xyz from odometry and IMU
+        #if self.last_orientation == None:
+        #    # with no direction there is no position
+        #    pass
+        #else:
+        #    #print(velocity, len_velocity, direction)
+        #    if not self.extrapolation_direction is None:
+        #        for i in range(len(self.extrapolation_start_xyz)):
+        #            continue
+        #            #self.extrapolation_start_xyz[i] += velocity[i] * distance
+        #            # !!! TODO !!! absolutni hodnota !!!
+        #            #self.extrapolation_start_xyz[i] += velocity[i] * abs(distance) / len_velocity
+        #            self.extrapolation_start_xyz[i] += self.extrapolation_direction[i] * abs(distance)
+        #            #self.extrapolation_start_xyz[i] += self.extrapolation_direction[i] * (distance)
 
 
 
@@ -119,10 +141,10 @@ class Localization:
                     orientation of the robot;
                     if it cannot be computed, `None` is returned
         """
-        if self.last_xyz_estimate is None:
+        if self.extrapolated_xyz is None:
             return None
         else:
-            return [self.last_xyz_estimate, self.last_orientation]
+            return [self.extrapolated_xyz, self.last_orientation]
         # TODO kvaternion neni extrapolovany, ale vraci se posledni hodnota
         # ziskana z IMU
         if time == None:
