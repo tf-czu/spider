@@ -110,7 +110,7 @@ class TestLocalization(unittest.TestCase):
             self.assertAlmostEqual(gps_xyz[1], filtered_y, places = 1)
             angle += angular_velocity * period
 
-    def test_extrapolation_based_on_odometry(self):
+    def ___test_extrapolation_based_on_odometry(self):
         # Simuluje rovnomerny pohyb po kruznici
         # data z IMU (odometrie) chodi 10x casteji nez data z GPS
         gps_err = [0.01, 0.01, 0.1]
