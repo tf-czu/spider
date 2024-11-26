@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.linalg import inv
 
-class KalmanFilterLocalization:
+class KalmanFilter1D:
     """
         Implementation of Kalman filter with 1D position, velocity, and
             acceleration.
@@ -33,8 +33,8 @@ class KalmanFilterLocalization:
         self.AT = self.A.transpose()
         self.Q = np.array([[0.1,0.1,0.1],
                            [0.1,0.2,0.2],
-                           [0.1,0.2,0.2],
-        self.H = np.array([1,0,0]])
+                           [0.1,0.2,0.2]])
+        self.H = np.array([[1,0,0]])
         self.HT = self.H.transpose()
 
     def input(self, x, time, x_err):
@@ -53,19 +53,20 @@ class KalmanFilterLocalization:
         da = dt*dt/2
         self.A = np.array([[1,dt,da],
                            [0,1,dt],
-                           [0,0,1],
+                           [0,0,1]])
         self.AT = self.A.transpose()
         variance = x_err**2
         self.R = np.array([[variance]])
         # we work with three-dimensional vector composed of one position
         # coordinate, one velocity coordinate and one acceleration
         # coordinate
-        estPos = self.A @ np.concatenate((self.position, self.velocity, self.acceleration), axis = None)
+        estPos = self.A @ np.array([self.position, self.velocity, self.acceleration])
         estP = self.A @ self.P @ self.AT + self.Q
         # Update step, if there are more inputs, just change this part according
         # to parametres of the other measurement
-        K = estP @ self.HT @ inv(self.H @ estP @ self.HT + self.R)
-        res = estPos + K@((xyz-self.H @ estPos).transpose())
+        M = inv(self.H @ estP @ self.HT + self.R)
+        K = (estP @ self.HT) @ inv(self.H @ estP @ self.HT + self.R)
+        res = estPos + K@((x-self.H @ estPos).transpose())
         self.P = estP - K @ self.H @ estP
         # saving current position, velocity and acceleration
         self.position = res[0]
