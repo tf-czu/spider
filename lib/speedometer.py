@@ -61,12 +61,16 @@ class Speedometer:
     def get_speed(self):
         """
             Returns (float): current speed in meters per second (can be
-                negative if reversing)
+                negative if reversing);
+                `None` if the current speed cannot be determined
         """
-        (t_a, s_a) = self.history[-2]
-        (t_b, s_b) = self.history[-1]
-        #print(t_a, s_a, t_b, s_b)
-        return (s_b - s_a) / (t_b.total_seconds() - t_a.total_seconds())
+        if len(self.history) < 3:
+            return None
+        else:
+            (t_a, s_a) = self.history[-2]
+            (t_b, s_b) = self.history[-1]
+            #print(t_a, s_a, t_b, s_b)
+            return (s_b - s_a) / (t_b.total_seconds() - t_a.total_seconds())
 
     def is_moving(self):
         """
