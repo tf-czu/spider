@@ -2,20 +2,32 @@ import numpy as np
 import math
 import osgar.lib.quaternion as quaternion
 from lib.kalman import KalmanFilterLocalization
+#from lib.speedometer import Tracker
 
 class Localization:
-    def __init__(self):
+    def __init__(self, verbose = False):
+        """
+            Args:
+                verbose (bool): `True` if the instance is supposed to store
+                    debug (history) data
+        """
         self.kf = KalmanFilterLocalization()
-        # posledni poloha spocitana Kalmanovym filtrem
+        ## posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
-        self.extrapolated_xyz = None
-        self.extrapolation_start_direction = self.kf.velocity
-        # cas posledni polohy spocitane Kalmanovym filtrem
-        self.last_time = None
-        # posledni poloha ziskana z odometrie a IMU
-        self.last_xyz_from_imu = [0.0, 0.0, 0.0]
-        # posledni orientace ziskana z IMU jako kvaternion
+        #self.extrapolated_xyz = None
+        #self.extrapolation_start_direction = self.kf.velocity
+        ## cas posledni polohy spocitane Kalmanovym filtrem
+        #self.last_time = None
+        ## posledni poloha ziskana z odometrie a IMU
+        #self.last_xyz_from_imu = [0.0, 0.0, 0.0]
+        ## posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
+        # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
+        #self.tracker = Tracker()
+        # debug data
+        self.verbose = verbose
+        if self.verbose:
+            self.debug_odo_xyz = [] # seznam trojic (x, y, z)
 
     def update_xyz_from_gps(self, time, xyz_from_gps, gps_err = None):
         """
@@ -34,20 +46,20 @@ class Localization:
         """
         self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
         time_in_seconds, xyz = self.kf.get_last_xyz()
-
-        # extrapolace: nastaveni pocatecni polohy
-        self.extrapolated_xyz = np.array(xyz)
-        # extrapolace: nastaveni pocatecniho smeru
-        # TODO nastavit pocatecni smer podle vektoru rychlosti z Kalmanova filtru
-        if self.last_xyz is None:
-            self.extrapolation_direction = np.array([0, 0, 0])
-        else:
-            direction_vector = np.array(xyz) - np.array(self.last_xyz)
-            direction = direction_vector / np.linalg.norm(direction_vector)
-            self.extrapolation_direction = direction
-        
-        self.last_time = time
         self.last_xyz = xyz
+
+        ## extrapolace: nastaveni pocatecni polohy
+        #self.extrapolated_xyz = np.array(xyz)
+        ## extrapolace: nastaveni pocatecniho smeru
+        ## TODO nastavit pocatecni smer podle vektoru rychlosti z Kalmanova filtru
+        #if self.last_xyz is None:
+        #    self.extrapolation_direction = np.array([0, 0, 0])
+        #else:
+        #    direction_vector = np.array(xyz) - np.array(self.last_xyz)
+        #    direction = direction_vector / np.linalg.norm(direction_vector)
+        #    self.extrapolation_direction = direction
+        #self.last_time = time
+        #self.last_xyz = xyz
 
     def update_orientation(self, time, orientation):
         """
@@ -59,6 +71,8 @@ class Localization:
                     represented by a quaternion
         """
         self.last_orientation = orientation
+        #self.tracker.update_orientation(time, orientation)
+    
         
     def update_distance(self, time, distance):
         """
@@ -70,7 +84,10 @@ class Localization:
                     can be negative if the robot is reversing
         """
         # !!! TODO !!! `distance` je tu v absolutni hodnote !!!
-        self.extrapolated_xyz += abs(distance) * self.extrapolation_direction
+        #self.extrapolated_xyz += abs(distance) * self.extrapolation_direction
+        #self.tracker.update_distance(time, distance)
+        pass
+
 
 
 
@@ -123,10 +140,10 @@ class Localization:
                     orientation of the robot;
                     if it cannot be computed, `None` is returned
         """
-        if self.extrapolated_xyz is None:
-            return None
-        else:
-            return [self.extrapolated_xyz, self.last_orientation]
+        #if self.extrapolated_xyz is None:
+        #    return None
+        #else:
+        #    return [self.extrapolated_xyz, self.last_orientation]
         # TODO kvaternion neni extrapolovany, ale vraci se posledni hodnota
         # ziskana z IMU
         if time == None:
