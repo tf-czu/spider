@@ -77,6 +77,8 @@ class LocalizationNode(Node):
         plt.plot(x, y, "bx-", label="gps kalman")
         x, y = list2xy(self.debug_estimated_position)
         plt.plot(x, y, "r.", label="estimation")
+        x, y = list2xy(self.localization.debug_odo_xyz)
+        plt.plot(x, y, "g.", label="estimation")
         plt.legend()
         plt.axis('equal')
         plt.show()

@@ -2,15 +2,10 @@ import numpy as np
 import math
 import osgar.lib.quaternion as quaternion
 from lib.kalman import KalmanFilterLocalization
-#from lib.speedometer import Tracker
+from lib.speedometer import Tracker
 
 class Localization:
-    def __init__(self, verbose = False):
-        """
-            Args:
-                verbose (bool): `True` if the instance is supposed to store
-                    debug (history) data
-        """
+    def __init__(self):
         self.kf = KalmanFilterLocalization()
         ## posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
@@ -23,11 +18,9 @@ class Localization:
         ## posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
         # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
-        #self.tracker = Tracker()
-        # debug data
-        self.verbose = verbose
-        if self.verbose:
-            self.debug_odo_xyz = [] # seznam trojic (x, y, z)
+        self.tracker = Tracker()
+        # DEBUG data
+        self.debug_odo_xyz = [] # seznam dvojic (x, y)
 
     def update_xyz_from_gps(self, time, xyz_from_gps, gps_err = None):
         """
@@ -71,7 +64,7 @@ class Localization:
                     represented by a quaternion
         """
         self.last_orientation = orientation
-        #self.tracker.update_orientation(time, orientation)
+        self.tracker.update_orientation(time, orientation)
     
         
     def update_distance(self, time, distance):
@@ -85,8 +78,10 @@ class Localization:
         """
         # !!! TODO !!! `distance` je tu v absolutni hodnote !!!
         #self.extrapolated_xyz += abs(distance) * self.extrapolation_direction
-        #self.tracker.update_distance(time, distance)
-        pass
+        self.tracker.update_distance(time, distance)
+        # DEBUG
+        tracker_xyz = self.tracker.get_xyz()
+        self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
 
 
 
