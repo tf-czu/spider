@@ -28,6 +28,7 @@ class TestLocalization(unittest.TestCase):
             gps_xyz = [0, 0, 0]
             for k in range(num_steps):
                 loc.update_xyz_from_gps(time, gps_xyz, gps_err = gps_err)
+                loc.status = "moving"
                 pose3d = loc.get_pose3d()
                 (filtered_x, filtered_y, __), __ = pose3d
                 # otestuj, zda `filtered_x` a `filtered_y` jsou ve stejnem pomeru,
@@ -101,6 +102,7 @@ class TestLocalization(unittest.TestCase):
         angular_velocity = 1 # rad / s
         num_steps = 30
         loc = lo.Localization()
+        loc.status = "moving"
         for k in range(num_steps):
             gps_xyz = [math.cos(angle), math.sin(angle), 0]
             loc.update_xyz_from_gps(time, gps_xyz, gps_err = gps_err)
