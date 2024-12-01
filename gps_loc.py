@@ -29,13 +29,14 @@ class LocalizationNode(Node):
         self.alt_0 = None
 
         self.verbose = False
-        self.debug_org_position = []
-        self.debug_kalman_position = []
+        self.debug_gps_orig = []
+        self.debug_gps_kalman = []
         self.debug_estimated_position = []
 
         self.debug_counter = 0
 
     def on_nmea_data(self, data):
+        # TODO DEBUG tady je umele snizeni frekvence GPS dat kvuli debugovani !!!
         self.debug_counter += 1
         if self.debug_counter % 20 != 0:
             return
@@ -54,7 +55,7 @@ class LocalizationNode(Node):
             x, y = self.con.geo2planar((lon, lat))
             self.localization.update_xyz_from_gps(self.time, [x, y, z], gps_err = self.gps_sd)
             if self.verbose:
-                self.debug_org_position.append([x, y])
+                self.debug_gps_orig.append([x, y])
         else:
             self.con = Convertor((lon, lat))
         if self.verbose:
@@ -62,20 +63,20 @@ class LocalizationNode(Node):
             #if kalman_pose3d:
             #    xyz, __ = kalman_pose3d
             #    if xyz is not None:
-            #        self.debug_kalman_position.append([xyz[0], xyz[1]])
+            #        self.debug_gps_kalman.append([xyz[0], xyz[1]])
             xyz = self.localization.last_xyz
             if xyz is not None:
-                self.debug_kalman_position.append([xyz[0], xyz[1]])
+                self.debug_gps_kalman.append([xyz[0], xyz[1]])
 
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
         import matplotlib.pyplot as plt
-        x, y = list2xy(self.debug_org_position)
-        plt.plot(x, y, "k+-", label="org_gps")
-        x, y = list2xy(self.debug_kalman_position)
-        plt.plot(x, y, "rx-", label="kalman")
+        x, y = list2xy(self.debug_gps_orig)
+        plt.plot(x, y, "k+-", label="gps orig")
+        x, y = list2xy(self.debug_gps_kalman)
+        plt.plot(x, y, "bx-", label="gps kalman")
         x, y = list2xy(self.debug_estimated_position)
-        plt.plot(x, y, "b.", label="estimation")
+        plt.plot(x, y, "r.", label="estimation")
         plt.legend()
         plt.axis('equal')
         plt.show()
@@ -91,7 +92,7 @@ class LocalizationNode(Node):
 #            if kalman_pose3d:
 #                xyz, __ = kalman_pose3d
 #                if xyz is not None:
-#                    self.debug_kalman_position.append([xyz[0], xyz[1]])
+#                    self.debug_gps_kalman.append([xyz[0], xyz[1]])
 #
 #    def on_timer(self, data):
 #        estimated_pose3d = self.localization.get_pose3d(self.time)
@@ -131,13 +132,17 @@ class GpsOdoLocalization(LocalizationNode):
         #    if self.verbose:  # verbose/debug mode
         #        xyz, __ = pose3d
         #        if xyz is not None:
-        #            self.debug_kalman_position.append([xyz[0], xyz[1]])
+        #            self.debug_gps_kalman.append([xyz[0], xyz[1]])
 
     def on_orientation(self, data):
         #print('on_orientation:', data)
         self.localization.update_orientation(self.time, data)
 
     def on_timer(self, data):
+        # TODO DEBUG: frekvence GPS dat je 20x snizena, viz on_nmea_data();
+        # takze metoda on_timer(), ktera je navazana na GPS data ve starem
+        # formatu, je volana 20x casteji
+        # Vyuzivam toho k testovani extrapolace
         #print('on_timer')
         estimated_pose3d = self.localization.get_pose3d(self.time)
         if estimated_pose3d:
