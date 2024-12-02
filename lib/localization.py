@@ -24,6 +24,7 @@ class Localization:
         self.ase = AngleScaleEstimator()
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
+        self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
 
     def update_xyz_from_gps(self, time, xyz_from_gps, gps_err = None):
         """
@@ -56,7 +57,7 @@ class Localization:
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
             self.ase.update(self.last_xyz, self.tracker.get_xyz())
 
-    def update_xyz_from_imu(self, time, xyz_from_imu, imu_err):
+    def REMOVE__update_xyz_from_imu(self, time, xyz_from_imu, imu_err):
         """
             Input new position coordinates obtained from IMU.
 
@@ -130,9 +131,46 @@ class Localization:
                     can be negative if the robot is reversing
         """
         self.tracker.update_distance(time, distance)
-        # DEBUG
         tracker_xyz = self.tracker.get_xyz()
+        # if we cannot say whether the robot si moving or not, nothing happens
+        if self.tracker.is_moving() != None:
+            # determining current status
+            if self.status == "waiting" and not self.tracker.is_moving():
+                status = "waiting"
+            if self.status == "waiting" and self.tracker.is_moving():
+                status = "settingOff"
+            elif self.status == "moving" and self.tracker.is_moving():
+                status = "moving"
+            elif self.status == "moving" and not self.tracker.is_moving():
+                status = "stopping"
+            #
+            if status == "moving":
+                # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
+                # Kalmanova filtru
+                if self.ase.get_angle() != None and self.ase.get_scale() != None:
+                    # this works in 2D
+                    # rotates by the angle clockwise
+                    angle = self.ase.get_angle()
+                    matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
+                                                   [-math.sin(angle), math.cos(angle)]])
+                    rotated_IMU_position = matrix_of_rotation @ self.tracker_xyz[:2]
+                    # scaling
+                    scale = self.ase.get_scale()
+                    rotated_and_scaled_IMU_position = scale * rotated_IMU_position
+                    rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
+                    self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), imu_err)
+            elif status == "waiting":
+                # robot se nehybe 
+                pass
+            elif status == "settingOff":
+                self.status = "moving"
+                self.kf = KalmanFilterLocalization()
+                kf.input(self.average_gps_xyz, time.total_seconds) # TODO otazka, jakou zde vlozit chybu gps
+            elif status == "stopping":
+                self.status = "waiting"
+        # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
+        #self.debug_odo_xyz_processed.append
 
     def get_pose3d(self, time = None):
         """
