@@ -15,9 +15,6 @@ class AngleScaleEstimator:
             * `get_scale()`
     """
 
-
-
-
     def __init__(self):
         self.reset()
 
