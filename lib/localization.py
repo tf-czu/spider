@@ -41,6 +41,11 @@ class Localization:
                 gps_err (list of float): error `[s_x, s_y, s_z]` of
                     `xyz_from_gps` (as standard deviations, in meters)
         """
+        # TODO NEW CODE DISABLED !!!
+        self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
+        time_in_seconds, xyz = self.kf.get_last_xyz()
+        self.last_xyz = xyz
+        return
         if self.status == "waiting":
             # averaging gps measurements while not moving
             if self.number_waiting_gps_measurements == 0:
@@ -158,6 +163,7 @@ class Localization:
                     scale = self.ase.get_scale()
                     rotated_and_scaled_IMU_position = scale * rotated_IMU_position
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
+                    #print(' ... ', rotated_and_scaled_IMU_position_3D, time.total_seconds())
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), imu_err)
             elif status == "waiting":
                 # robot se nehybe 
