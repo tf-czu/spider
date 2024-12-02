@@ -94,7 +94,8 @@ class Speedometer:
             if dt >= 1.0:
                 ds = s_end - s
                 avg_vel = ds / dt
-                if avg_vel >= 0.01: # 1cm per second
+                #print(avg_vel, '=', ds, '/', dt)
+                if abs(avg_vel) >= 0.01: # 1cm per second
                     return True
                 else:
                     return False

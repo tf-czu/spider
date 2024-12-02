@@ -16,6 +16,7 @@ class Localization:
         self.tracker = Tracker()
         # vyjadruje aktualni stav robota, bud waiting nebo moving
         self.status = "waiting"
+        #self.status = "moving"
         # potreba pro prumerovani gps pozice behem stani
         self.number_waiting_gps_measurements = 0
         # prumerna pozice gps behem stani
@@ -55,6 +56,7 @@ class Localization:
             self.number_waiting_gps_measurements += 1
             self.last_xyz = self.average_gps_xyz 
         elif self.status == "moving":
+            #print(time.total_seconds(), self.status)
             # updating Kalman filter
             self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
             time_in_seconds, xyz = self.kf.get_last_xyz()
@@ -158,22 +160,25 @@ class Localization:
                     angle = self.ase.get_angle()
                     matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
                                                    [-math.sin(angle), math.cos(angle)]])
-                    rotated_IMU_position = matrix_of_rotation @ self.tracker_xyz[:2]
+                    rotated_IMU_position = matrix_of_rotation @ tracker_xyz[:2]
                     # scaling
                     scale = self.ase.get_scale()
                     rotated_and_scaled_IMU_position = scale * rotated_IMU_position
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
                     #print(' ... ', rotated_and_scaled_IMU_position_3D, time.total_seconds())
-                    self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), imu_err)
+                    # TODO program se sem nikdy nedostane !!!
+                    self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), [1, 1, 1])
             elif status == "waiting":
                 # robot se nehybe 
                 pass
             elif status == "settingOff":
                 self.status = "moving"
                 self.kf = KalmanFilterLocalization()
-                kf.input(self.average_gps_xyz, time.total_seconds) # TODO otazka, jakou zde vlozit chybu gps
+                self.kf.input(self.average_gps_xyz, time.total_seconds(), [1, 1, 1]) # TODO otazka, jakou zde vlozit chybu gps
             elif status == "stopping":
                 self.status = "waiting"
+                self.average_gps_xyz = [0, 0, 0]
+                self.number_waiting_gps_measurements = 0
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
         #self.debug_odo_xyz_processed.append
