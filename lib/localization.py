@@ -6,7 +6,10 @@ from lib.speedometer import Tracker
 from lib.anglescaleestimator import AngleScaleEstimator
 
 class Localization:
-    def __init__(self):
+    def __init__(self, gps_err = [2,2,6], imu_err = [4,4,100]):
+        # odchylky se mohou v prubehu zpracovani menit metodami set_gps_err a
+        # jejich nastaveni je magie
+        # set_imu_err
         self.kf = KalmanFilterLocalization()
         # posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz = None
@@ -16,7 +19,6 @@ class Localization:
         self.tracker = Tracker()
         # vyjadruje aktualni stav robota, bud waiting nebo moving
         self.status = "waiting"
-        #self.status = "moving"
         # potreba pro prumerovani gps pozice behem stani
         self.number_waiting_gps_measurements = 0
         # prumerna pozice gps behem stani, na uplnem pocatku pohybu predpokladame, ze
@@ -27,8 +29,30 @@ class Localization:
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
+        self._gps_err = gps_err 
+        self._imu_err = imu_err
+        # zde bude ulozena puvodni hodnota imu_err pro ucely jejich uprav,
+        # nebude se menit
+        self.original_imu_err = imu_err
 
-    def update_xyz_from_gps(self, time, xyz_from_gps, gps_err = None):
+    def set_gps_err(self, gps_err):
+        # gps_err is a list of three floats
+        all_pos = True
+        for i in range(3):
+            all_pos = all_pos and (gps_err > 0)
+        if all_pos:
+            self._gps_err = gps_err
+
+    def set_imu_err(self, imu_err):
+        # gps_err is a list of three floats
+        all_pos = True
+        for i in range(3):
+            all_pos = all_pos and (imu_err > 0)
+        if all_pos:
+            self._imu_err = imu_err
+
+
+    def update_xyz_from_gps(self, time, xyz_from_gps):
         """
             Input new position coordinates obtained from GPS.
 
@@ -60,7 +84,7 @@ class Localization:
         elif self.status == "moving":
             # print(time.total_seconds(), self.status)
             # updating Kalman filter
-            self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
+            self.kf.input(xyz_from_gps, time.total_seconds(), self._gps_err)
             time_in_seconds, xyz = self.kf.get_last_xyz()
             self.last_xyz = xyz
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
@@ -177,19 +201,25 @@ class Localization:
                     # scaling
                     scale = self.ase.get_scale()
                     #print("scale:", scale)
-                    rotated_and_scaled_IMU_position = scale * rotated_IMU_position
+                    rotated_and_scaled_IMU_position = [0,0]
+                    for i in range(2):
+                        rotated_and_scaled_IMU_position[i] = rotated_IMU_position[i] / scale  
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
 
                     #print(' ... ', rotated_and_scaled_IMU_position_3D, time.total_seconds())
-                    self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), [1, 1, 1])
-                    self.debug_odo_xyz.append((rotated_IMU_position[0], rotated_IMU_position[1]))
+                    self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
+                    self.debug_odo_xyz.append((rotated_and_scaled_IMU_position[0], rotated_and_scaled_IMU_position[1]))
             elif status == "waiting":
                 # robot se nehybe 
                 pass
             elif status == "settingOff":
                 self.status = "moving"
                 self.kf = KalmanFilterLocalization()
-                self.kf.input(self.average_gps_xyz, time.total_seconds(), [1, 1, 1]) # TODO otazka, jakou zde vlozit chybu gps
+                # pocet gps mereni behem stani snizuje chybu
+                gps_err = [0,0,0]
+                for i in range(3):
+                    gps_err[i] = self._gps_err[i]/self.number_waiting_gps_measurements
+                self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
             elif status == "stopping":
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz

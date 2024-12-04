@@ -24,7 +24,7 @@ class LocalizationNode(Node):
         super().__init__(config, bus)
         bus.register('pose3d')  # register a stream to be published
         self.localization = Localization()
-        self.gps_sd = config.get('gps_sd', [2, 2, 6])  # standard deviation [x, y, z]
+        #self.gps_sd = config.get('gps_sd', [2, 2, 6])  # standard deviation [x, y, z]
         self.con = None  # GPS convertor to planar coordinates
         self.alt_0 = None
 
@@ -53,7 +53,7 @@ class LocalizationNode(Node):
             z = 0
         if self.con:
             x, y = self.con.geo2planar((lon, lat))
-            self.localization.update_xyz_from_gps(self.time, [x, y, z], gps_err = self.gps_sd)
+            self.localization.update_xyz_from_gps(self.time, [x, y, z])
             if self.verbose:
                 self.debug_gps_orig.append([x, y])
         else:

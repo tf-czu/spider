@@ -24,8 +24,8 @@ class AngleScaleEstimator:
         # measurements closer to origin than self.minimal_distance_to_accept are not
         # processed at all, maximum weight gets measurements at least 
         # self.distance_with_full_weight from the origin 
-        self.minimal_distance_to_accept = 5
-        self.distance_with_full_weight = 20
+        self.minimal_distance_to_accept = 10 
+        self.distance_with_full_weight = 50
         
     def reset(self):
         """
@@ -97,7 +97,7 @@ class AngleScaleEstimator:
         gps_distance = self.get_distance_from_origin(gps)
         imu_distance = self.get_distance_from_origin(imu)
         weight = min(self.weight_by_distance(gps_distance), self.weight_by_distance(imu_distance))
-        # print("weight", weight)
+        #print("weight", weight)
         if weight != 0:
             scale = self.calculate_scale(gps, imu)
             if self.scale is not None:
