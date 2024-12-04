@@ -47,8 +47,8 @@ class Localization:
         #self.kf.input(xyz_from_gps, time.total_seconds(), gps_err)
         #time_in_seconds, xyz = self.kf.get_last_xyz()
         #self.last_xyz = xyz
-        print("processing gps input")
-        print(self.status)
+        #print("processing gps input")
+        #print(self.status)
         if self.status == "waiting":
             # averaging gps measurements while not moving
             if self.number_waiting_gps_measurements == 0:
@@ -65,9 +65,9 @@ class Localization:
             self.last_xyz = xyz
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
             # print(" updating AngleScaleEstimator using processed data by KF, not just measured by gps")
-            self.ase.update(xyz_from_gps, self.tracker.get_xyz())
+            self.ase.update(self.tracker.get_xyz(), xyz_from_gps)
             #self.ase.update(self.last_xyz, self.tracker.get_xyz())
-            print(self.last_xyz, self.tracker.get_xyz())
+            #print(xyz_from_gps, self.tracker.get_xyz())
             #print(self.last_xyz, self.tracker.get_xyz())
             #print(self.ase.get_angle())
 
@@ -179,9 +179,10 @@ class Localization:
                     #print("scale:", scale)
                     rotated_and_scaled_IMU_position = scale * rotated_IMU_position
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
+
                     #print(' ... ', rotated_and_scaled_IMU_position_3D, time.total_seconds())
-                    # TODO program se sem nikdy nedostane !!!
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), [1, 1, 1])
+                    self.debug_odo_xyz.append((rotated_IMU_position[0], rotated_IMU_position[1]))
             elif status == "waiting":
                 # robot se nehybe 
                 pass

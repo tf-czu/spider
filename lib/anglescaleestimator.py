@@ -97,12 +97,10 @@ class AngleScaleEstimator:
         gps_distance = self.get_distance_from_origin(gps)
         imu_distance = self.get_distance_from_origin(imu)
         weight = min(self.weight_by_distance(gps_distance), self.weight_by_distance(imu_distance))
-        print("weight", weight)
+        # print("weight", weight)
         if weight != 0:
             scale = self.calculate_scale(gps, imu)
-            if self.scale != None:
-                #new_scale = (self.number_of_measurements*self.scale + weight*scale)/(self.number_of_measurements+weight)
-                #print("scale:", new_scale)
+            if self.scale is not None:
                 #if abs(new_scale - self.scale) > 0.1:
                 #   print("reseting scale too much")
                 #   time.sleep(1)
@@ -111,7 +109,7 @@ class AngleScaleEstimator:
                 self.scale = scale
 
             angle = self.calculate_angle(gps, imu)
-            if self.angle != None:
+            if self.angle is not None:
                self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
                v1 = self_vector*self.number_of_measurements
                new_vector = np.array([math.cos(angle), math.sin(angle)])
