@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import datetime
+import time
 
 class AngleScaleEstimator:
     """
@@ -71,6 +72,9 @@ class AngleScaleEstimator:
                     b2: souradnice x, y bodu v rovine
                 Returns the ratio of distances of the points from the origin
             """
+            #print(b1)
+            #print(b2)
+            #print(self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2))
             return self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2)
 
     def update(self, gps, imu):
@@ -93,9 +97,15 @@ class AngleScaleEstimator:
         gps_distance = self.get_distance_from_origin(gps)
         imu_distance = self.get_distance_from_origin(imu)
         weight = min(self.weight_by_distance(gps_distance), self.weight_by_distance(imu_distance))
+        print("weight", weight)
         if weight != 0:
             scale = self.calculate_scale(gps, imu)
             if self.scale != None:
+                #new_scale = (self.number_of_measurements*self.scale + weight*scale)/(self.number_of_measurements+weight)
+                #print("scale:", new_scale)
+                #if abs(new_scale - self.scale) > 0.1:
+                #   print("reseting scale too much")
+                #   time.sleep(1)
                 self.scale = (self.number_of_measurements*self.scale + weight*scale)/(self.number_of_measurements+weight)
             else:
                 self.scale = scale
@@ -107,6 +117,10 @@ class AngleScaleEstimator:
                new_vector = np.array([math.cos(angle), math.sin(angle)])
                v2 = new_vector*weight
                v = v1+v2
+               #new_angle = self.calculate_angle(v,[1,0])
+               #if abs(new_angle - self.angle) > 0.1:
+               #    print("reseting angle too much")
+               #    time.sleep(1)
                self.angle = self.calculate_angle(v,[1,0])
             else:
                 self.angle = angle
