@@ -19,8 +19,9 @@ class Localization:
         #self.status = "moving"
         # potreba pro prumerovani gps pozice behem stani
         self.number_waiting_gps_measurements = 0
-        # prumerna pozice gps behem stani
-        self.average_gps_xyz = None
+        # prumerna pozice gps behem stani, na uplnem pocatku pohybu predpokladame, ze
+        # je [0.0, 0.0, 0.0] 
+        self.average_gps_xyz = [0.0, 0.0, 0.0] 
         #
         self.ase = AngleScaleEstimator()
         # DEBUG data
@@ -63,6 +64,7 @@ class Localization:
             self.last_xyz = xyz
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
             self.ase.update(self.last_xyz, self.tracker.get_xyz())
+            #print(self.ase.get_angle())
 
     def REMOVE__update_xyz_from_imu(self, time, xyz_from_imu, imu_err):
         """
@@ -91,6 +93,7 @@ class Localization:
         elif self.status == "moving" and not self.tracker.is_moving():
             status = "stopping"
         #
+        #print(status)
         if status == "moving":
             # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
             # Kalmanova filtru
