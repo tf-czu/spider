@@ -208,7 +208,7 @@ class Localization:
 
                     #print(' ... ', rotated_and_scaled_IMU_position_3D, time.total_seconds())
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
-                    self.debug_odo_xyz.append((rotated_and_scaled_IMU_position[0], rotated_and_scaled_IMU_position[1]))
+                    self.debug_odo_xyz_processed.append((rotated_and_scaled_IMU_position[0], rotated_and_scaled_IMU_position[1]))
             elif status == "waiting":
                 # robot se nehybe 
                 pass

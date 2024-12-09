@@ -37,9 +37,9 @@ class LocalizationNode(Node):
 
     def on_nmea_data(self, data):
         # TODO DEBUG tady je umele snizeni frekvence GPS dat kvuli debugovani !!!
-        self.debug_counter += 1
-        if self.debug_counter % 20 != 0:
-            return
+        #self.debug_counter += 1
+        #if self.debug_counter % 20 != 0:
+        #    return
         #print('on_nmea_data:', data)
         lon = data["lon"]
         lat = data["lat"]
