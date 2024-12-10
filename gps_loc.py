@@ -23,16 +23,22 @@ class LocalizationNode(Node):
     def __init__(self, config, bus):
         super().__init__(config, bus)
         bus.register('pose3d')  # register a stream to be published
-        self.localization = Localization()
-        #self.gps_sd = config.get('gps_sd', [2, 2, 6])  # standard deviation [x, y, z]
+
+        # standard deviation [x, y, z] of position from GPS
+        # (the second argument is the default value)
+        self.gps_err = config.get('gps_err', [2, 2, 6])
+        # standard deviation [x, y, z] of position computed from odometry and IMU
+        # (the second argument is the default value)
+        self.imu_err = config.get('imu_err', [4, 4, 100])
+
+        self.localization = Localization(gps_err = self.gps_err, imu_err = self.imu_err)
+
         self.con = None  # GPS convertor to planar coordinates
         self.alt_0 = None
-
         self.verbose = False
         self.debug_gps_orig = []
         self.debug_gps_kalman = []
         self.debug_estimated_position = []
-
         self.debug_counter = 0
 
     def on_nmea_data(self, data):

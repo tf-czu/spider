@@ -32,7 +32,8 @@
 	      "in": ["nmea_data", "odom", "orientation"],
 	      "out": ["pose3d"],
 	      "init":{
-            "gps_sd": [0.5, 0.5, 1.5]
+            "gps_err": [2, 2, 6],
+            "imu_err": [4, 4, 100]
           }
       },
       "imu_tcp": {
