@@ -36,7 +36,13 @@ class Localization:
         self.original_imu_err = imu_err
 
     def set_gps_err(self, gps_err):
-        # gps_err is a list of three floats
+        """
+            Sets the error of the GPS position.
+
+            Args:
+                gps_err (list of float): standard deviations (s_x, s_y, s_z) of
+                    GPS coordinates (x, y, z); in meters
+        """
         all_pos = True
         for i in range(3):
             all_pos = all_pos and (gps_err > 0)
@@ -44,7 +50,14 @@ class Localization:
             self._gps_err = gps_err
 
     def set_imu_err(self, imu_err):
-        # gps_err is a list of three floats
+        """
+            Sets the error of the position computed from odometry and IMU.
+
+            Args:
+                imu_err (list of float): standard deviations (s_x, s_y, s_z) of
+                    coordinates (x, y, z) obtained from odometry and IMU; in
+                    meters
+        """
         all_pos = True
         for i in range(3):
             all_pos = all_pos and (imu_err > 0)
