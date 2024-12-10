@@ -64,6 +64,8 @@ class Localization:
                     obtained from GPS as its projection into Cartesian
                     coordinate system with two axes tangential to Earth's
                     surface and one axis normal to Earth's surface
+
+            Removed Args:
                 gps_err (list of float): error `[s_x, s_y, s_z]` of
                     `xyz_from_gps` (as standard deviations, in meters)
         """

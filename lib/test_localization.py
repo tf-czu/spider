@@ -27,7 +27,7 @@ class TestLocalization(unittest.TestCase):
             loc = lo.Localization()
             gps_xyz = [0, 0, 0]
             for k in range(num_steps):
-                loc.update_xyz_from_gps(time, gps_xyz, gps_err = gps_err)
+                loc.update_xyz_from_gps(time, gps_xyz)
                 loc.status = "moving"
                 pose3d = loc.get_pose3d()
                 (filtered_x, filtered_y, __), __ = pose3d
@@ -57,7 +57,7 @@ class TestLocalization(unittest.TestCase):
                     xyz_from_gps = [0, 0, 0]
                 else:
                     xyz_from_gps = [xyz_from_gps[i] + velocity[i]*period*gps_step for i in range(3)]
-                loc.update_xyz_from_gps(time, xyz_from_gps, gps_err = gps_err)
+                loc.update_xyz_from_gps(time, xyz_from_gps)
             pose3d = loc.get_pose3d(time)
             (filtered_x, filtered_y, __), __ = pose3d
             # otestuj, zda `filtered_x` a `filtered_y` jsou ve stejnem pomeru,
@@ -89,7 +89,7 @@ class TestLocalization(unittest.TestCase):
                 elif gps_step_counter % 4 == 3:
                     xyz_from_gps = [0, 1, 0]
                 gps_step_counter += 1
-                loc.update_xyz_from_gps(time, xyz_from_gps, gps_err = gps_err)
+                loc.update_xyz_from_gps(time, xyz_from_gps)
             pose3d = loc.get_pose3d(time)
 
     def test_circular_trajectory(self):
@@ -105,7 +105,7 @@ class TestLocalization(unittest.TestCase):
         loc.status = "moving"
         for k in range(num_steps):
             gps_xyz = [math.cos(angle), math.sin(angle), 0]
-            loc.update_xyz_from_gps(time, gps_xyz, gps_err = gps_err)
+            loc.update_xyz_from_gps(time, gps_xyz)
             pose3d = loc.get_pose3d()
             (filtered_x, filtered_y, __), __ = pose3d
             self.assertAlmostEqual(gps_xyz[0], filtered_x, places = 1)
