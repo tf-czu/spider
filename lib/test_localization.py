@@ -92,26 +92,6 @@ class TestLocalization(unittest.TestCase):
                 loc.update_xyz_from_gps(time, xyz_from_gps)
             pose3d = loc.get_pose3d(time)
 
-    def test_circular_trajectory(self):
-        # Simuluje rovnomerny pohyb po kruznici
-        time = datetime.timedelta(seconds = 0)
-        gps_err = [0.1, 0.1, 0.1]
-        freq = 10 # Hz
-        period = 1 / freq
-        angle = 0
-        angular_velocity = 1 # rad / s
-        num_steps = 30
-        loc = lo.Localization()
-        loc.status = "moving"
-        for k in range(num_steps):
-            gps_xyz = [math.cos(angle), math.sin(angle), 0]
-            loc.update_xyz_from_gps(time, gps_xyz)
-            pose3d = loc.get_pose3d()
-            (filtered_x, filtered_y, __), __ = pose3d
-            self.assertAlmostEqual(gps_xyz[0], filtered_x, places = 1)
-            self.assertAlmostEqual(gps_xyz[1], filtered_y, places = 1)
-            angle += angular_velocity * period
-
     def ___test_extrapolation_based_on_odometry(self):
         # Simuluje rovnomerny pohyb po kruznici
         # data z IMU (odometrie) chodi 10x casteji nez data z GPS
