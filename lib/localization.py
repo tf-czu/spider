@@ -6,7 +6,8 @@ from lib.speedometer import Tracker
 from lib.anglescaleestimator import AngleScaleEstimator
 
 class Localization:
-    def __init__(self, gps_err = [2,2,6], imu_err = [4,4,100]):
+    #def __init__(self, gps_err = [2,2,6], imu_err = [4,4,100]):
+    def __init__(self, gps_err,imu_err):
         # odchylky se mohou v prubehu zpracovani menit metodami set_gps_err a
         # jejich nastaveni je magie
         # set_imu_err
@@ -25,7 +26,7 @@ class Localization:
         # je [0.0, 0.0, 0.0] 
         self.average_gps_xyz = [0.0, 0.0, 0.0] 
         #
-        self.ase = AngleScaleEstimator()
+        self.ase = AngleScaleEstimator(300)
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)

@@ -16,16 +16,19 @@ class AngleScaleEstimator:
             * `get_scale()`
     """
 
-    def __init__(self):
+    def __init__(self, history_length = math.inf):
         self.reset()
-
-        # maximal weight of a new measurement
-
         # measurements closer to origin than self.minimal_distance_to_accept are not
         # processed at all, maximum weight gets measurements at least 
         # self.distance_with_full_weight from the origin 
         self.minimal_distance_to_accept = 10 
-        self.distance_with_full_weight = 50
+        self.distance_with_full_weight = 100
+        # the averaging can be computed over all input data or over last
+        # self.history_length of them, in that case the history is stored in
+        # self.history
+        self.finite_history = (history_length != math.inf) #to distinguish between the two types of the estimator
+        if history_length < math.inf:
+            self.history_length = history_length
         
     def reset(self):
         """
@@ -33,7 +36,10 @@ class AngleScaleEstimator:
         """
         self.angle = None
         self.scale = None
-        self.number_of_measurements = 0
+        self.total_weight = 0 #used when history_length is infinity
+        self.angle_history = []               #used when history_length is finite
+        self.scale_history = []               #used when history_length is finite
+        self.weight_history = []              #used when history_length is finite
 
     def get_distance_from_origin(self, position):
         # assuming the starting position to be [0,0]
@@ -48,7 +54,7 @@ class AngleScaleEstimator:
         if d < self.minimal_distance_to_accept:
             return 0
         if self.minimal_distance_to_accept <= d <= self.distance_with_full_weight:
-            return (d-self.minimal_distance_to_accept)/(self.distance_with_full_weight-self.minimal_distance_to_accept)
+            return max(0.1, (d-self.minimal_distance_to_accept)/(self.distance_with_full_weight-self.minimal_distance_to_accept))
         return 1
 
     def calculate_angle(self, b1, b2):
@@ -100,30 +106,75 @@ class AngleScaleEstimator:
         #print("weight", weight)
         if weight != 0:
             scale = self.calculate_scale(gps, imu)
-            if self.scale is not None:
-                #if abs(new_scale - self.scale) > 0.1:
-                #   print("reseting scale too much")
-                #   time.sleep(1)
-                self.scale = (self.number_of_measurements*self.scale + weight*scale)/(self.number_of_measurements+weight)
-            else:
-                self.scale = scale
-
             angle = self.calculate_angle(gps, imu)
-            if self.angle is not None:
-               self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
-               v1 = self_vector*self.number_of_measurements
-               new_vector = np.array([math.cos(angle), math.sin(angle)])
-               v2 = new_vector*weight
-               v = v1+v2
-               #new_angle = self.calculate_angle(v,[1,0])
-               #if abs(new_angle - self.angle) > 0.1:
-               #    print("reseting angle too much")
-               #    time.sleep(1)
-               self.angle = self.calculate_angle(v,[1,0])
-            else:
-                self.angle = angle
+            if self.finite_history:
+                #print(weight)
+                #print("Finite history", self.total_weight)
+                #print(len(self.angle_history))
+                if len(self.angle_history) == self.history_length:
+                    # history is full and the last element must be deleted and
+                    # uncalculated
+                    # in this case self.angle and self.scale should not be None
+                    # by definition
+                    angle_to_remove = self.angle_history.pop()
+                    scale_to_remove = self.scale_history.pop()
+                    weight_to_remove = self.weight_history.pop()
+                    #removing old scale
+                    self.scale = (self.total_weight*self.scale - weight_to_remove*scale_to_remove)/(self.total_weight - weight_to_remove)
+                    #removing old angle
+                    self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
+                    v1 = self_vector*self.total_weight
+                    vector_to_remove = np.array([math.cos(angle_to_remove), math.sin(angle_to_remove)])
+                    v2 = vector_to_remove*weight_to_remove
+                    #print("Removing vector", v2)
+                    v = v1-v2
+                    self.angle = self.calculate_angle(v,[1,0])
+                    #removing old weight
+                    self.total_weight -= weight_to_remove
+                # adding new measurement
+                # case when only adding measurement to the history, it is
+                # the same as in infinite history case, only the history is
+                # being created
+                self.angle_history.insert(0, angle)
+                self.scale_history.insert(0, scale)
+                self.weight_history.insert(0, weight)
+                if self.scale is not None:
+                    self.scale = (self.total_weight*self.scale + weight*scale)/(self.total_weight+weight)
+                else:
+                    self.scale = scale
+                #print("new added", self.scale)
 
-            self.number_of_measurements += 1
+                if self.angle is not None:
+                    self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
+                    v1 = self_vector*self.total_weight
+                    new_vector = np.array([math.cos(angle), math.sin(angle)])
+                    v2 = new_vector*weight
+                    #print("Adding vector", v2)
+                    v = v1+v2
+                    self.angle = self.calculate_angle(v,[1,0])
+                else:
+                    self.angle = angle
+                self.total_weight += weight
+                #print("Angle", self.angle)
+            else:
+                # The case with infinite history
+                if self.scale is not None:
+                    self.scale = (self.total_weight*self.scale + weight*scale)/(self.total_weight+weight)
+                else:
+                    self.scale = scale
+
+                if self.angle is not None:
+                   self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
+                   v1 = self_vector*self.total_weight
+                   new_vector = np.array([math.cos(angle), math.sin(angle)])
+                   v2 = new_vector*weight
+                   v = v1+v2
+                   self.angle = self.calculate_angle(v,[1,0])
+                else:
+                    self.angle = angle
+
+                self.total_weight += weight
+                #print("Infinite history", self.total_weight)
 
 
     def get_angle(self):
