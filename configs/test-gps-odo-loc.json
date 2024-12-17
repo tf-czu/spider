@@ -88,8 +88,6 @@
               ["imu.orientation", "localization.orientation"],
               ["gps.nmea_data", "localization.nmea_data"],
 
-              ["gps.position", "localization.timer"],
-
               ["gps_tcp.raw", "gps.raw"],
               ["gps_tcp.raw", "rtk_filter.nmea"],
               ["rtk_filter.filtered", "rtk_modem.raw"],

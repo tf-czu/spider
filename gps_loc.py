@@ -33,7 +33,7 @@ class LocalizationNode(Node):
 
         self.localization = Localization(gps_err = self.gps_err, imu_err = self.imu_err)
 
-        self.con = None  # GPS convertor to planar coordinates
+        self.con = None # GPS convertor to planar coordinates
         self.alt_0 = None
         self.verbose = False
         self.debug_gps_orig = []
@@ -42,11 +42,6 @@ class LocalizationNode(Node):
         self.debug_counter = 0
 
     def on_nmea_data(self, data):
-        # TODO DEBUG tady je umele snizeni frekvence GPS dat kvuli debugovani !!!
-        #self.debug_counter += 1
-        #if self.debug_counter % 20 != 0:
-        #    return
-        #print('on_nmea_data:', data)
         lon = data["lon"]
         lat = data["lat"]
         assert data["lon_dir"] == "E"
@@ -119,7 +114,7 @@ class GpsOdoLocalization(LocalizationNode):
         super().__init__(config, bus)
         self.last_odom = None
 
-    def on_odom(self, data):  # pose2d format required
+    def on_odom(self, data): # pose2d format required
         x, y, heading = data
         odom = Pose2d(x / 1000.0, y / 1000.0, math.radians(heading / 100.0))
         if self.last_odom is not None:
@@ -146,19 +141,10 @@ class GpsOdoLocalization(LocalizationNode):
         #            self.debug_gps_kalman.append([xyz[0], xyz[1]])
 
     def on_orientation(self, data):
-        #print('on_orientation:', data)
+        """
+            This is called when new orientation from IMU is obtained.
+
+            Args:
+                data (list of float): quaternion
+        """
         self.localization.update_orientation(self.time, data)
-
-    def on_timer(self, data):
-        # TODO DEBUG: frekvence GPS dat je 20x snizena, viz on_nmea_data();
-        # takze metoda on_timer(), ktera je navazana na GPS data ve starem
-        # formatu, je volana 20x casteji
-        # Vyuzivam toho k testovani extrapolace
-        #print('on_timer')
-        estimated_pose3d = self.localization.get_pose3d(self.time)
-        if estimated_pose3d:
-            self.publish("pose3d", estimated_pose3d)
-            if self.verbose:
-                (x, y, __), __ = estimated_pose3d
-                self.debug_estimated_position.append([x, y])
-
