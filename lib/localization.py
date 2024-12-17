@@ -12,7 +12,9 @@ class Localization:
         # set_imu_err(); jejich nastaveni je magie
         self.kf = KalmanFilterLocalization()
         # posledni poloha spocitana Kalmanovym filtrem
-        self.last_xyz = None
+        self.last_xyz_kf = None
+        # posledni poloha spocitana rotovanou a natahnutou odometrii
+        self.last_xyz_odo = None
         # posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
         # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
@@ -88,12 +90,12 @@ class Localization:
             else:
                 self.average_gps_xyz = (self.average_gps_xyz*self.number_waiting_gps_measurements+np.array(xyz_from_gps))/(self.number_waiting_gps_measurements+1)
             self.number_waiting_gps_measurements += 1
-            self.last_xyz = self.average_gps_xyz 
+            self.last_xyz_kf = self.average_gps_xyz 
         elif self.status == "moving":
             # updating Kalman filter
             self.kf.input(xyz_from_gps, time.total_seconds(), self._gps_err)
             time_in_seconds, xyz = self.kf.get_last_xyz()
-            self.last_xyz = xyz
+            self.last_xyz_kf = xyz
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
             self.ase.update(self.tracker.get_xyz(), xyz_from_gps)
 
@@ -147,8 +149,12 @@ class Localization:
                     rotated_and_scaled_IMU_position = [0,0]
                     for i in range(2):
                         rotated_and_scaled_IMU_position[i] = rotated_IMU_position[i] / scale  
+                    # TODO pracuje se pouze s 2D odometrii a pak se k tomu
+                    # prida nulova z-ova souradnice;
+                    # mozna by se mohlo pracovat rovnou s 3D odometrii
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
+                    self.last_xyz_odo = rotated_and_scaled_IMU_position_3D
                     self.debug_odo_xyz_processed.append((rotated_and_scaled_IMU_position[0], rotated_and_scaled_IMU_position[1]))
             elif status == "waiting":
                 # robot se nehybe 
@@ -163,21 +169,80 @@ class Localization:
                 self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
             elif status == "stopping":
                 self.status = "waiting"
-                self.average_gps_xyz = self.last_xyz
+                self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 0
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
 
-    def get_pose3d(self, time = None):
+    def get_pose3d_kf(self, time = None):
         """
-            Returns the last value of `pose3d` or its extrapolation.
+            Returns the position and the orientation of the robot as computed
+                by the Kalman filter.
 
+            According to the value of `time`, the returned value is either an
+                output of the embedded Kalman filter or an extrapolation.
+        
             Args:
                 time (datetime.timedelta): (absolute) time;
-                    if `time == None`:
-                        then the last value of `pose3d` is returned,
-                    else:
-                        the extrapolation of `pose3d` is returned
+
+                    * if time is None:
+                        the current position is returned as the scaled and
+                            rotated odometry position;
+                    * if type(time) is datetime.timedelta):
+                        the extrapolation of the position by the Kalman filter
+                        is returned;
+
+            Returns (list): list with two items:
+                1. list with three floats ... coordinates in meters
+                    representing the position of the robot;
+                2. list with four floats ... quaternion representing the
+                    orientation of the robot;
+                    if it cannot be computed, `None` is returned;
+                    this value is not extrapolated, the last computed value is
+                    returned
+        """
+        if time is None:
+            return [self.last_xyz_kf, self.last_orientation]
+        else:
+            return [self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation]
+
+    def get_pose3d_odo(self):
+        """
+            Returns the position and the orientation of the robot as computed
+                by IMU, the odometry, and the Kalman filter.
+
+            No `time` parameter here compared to `get_pose3d_kf()`, hence no
+                extrapolation.
+        
+            Returns (list): list with two items:
+                1. list with three floats ... coordinates in meters
+                    representing the position of the robot;
+                2. list with four floats ... quaternion representing the
+                    orientation of the robot;
+                    if it cannot be computed, `None` is returned;
+        """
+        return [self.last_xyz_odo, self.last_orientation]
+
+    def get_pose3d(self, time = None):
+        # TODO this method is probably obsolete now
+        """
+            Returns the position and the orientation of the robot.
+
+            According to the value of `time`, the returned value is either an
+                output of the embedded Kalman filter or it is the scaled and
+                rotated odometry position. 
+        
+            Args:
+                time (datetime.timedelta): (absolute) time;
+
+                    * if time is None:
+                        the current position is returned as the scaled and
+                            rotated odometry position;
+                    * if type(time) is datetime.timedelta):
+                        the extrapolation of the position by the Kalman filter
+                        is returned;
+                    * otherwise (e.g. if time == "now"):
+                        the current position by the Kalman filter is returned;
 
             Returns (list): list with two items:
                 1. list with three floats ... coordinates in meters
@@ -187,8 +252,9 @@ class Localization:
                     if it cannot be computed, `None` is returned
         """
         # ziskana z IMU
-        if time == None:
-            result = [self.last_xyz, self.last_orientation]
+        if time is None:
+            #elif isinstance(time, datetime.timedelta):
+            result = [self.last_xyz_kf, self.last_orientation]
         else:
             result = [self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation]
         return result

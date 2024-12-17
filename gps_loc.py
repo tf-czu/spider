@@ -37,9 +37,8 @@ class LocalizationNode(Node):
         self.alt_0 = None
         self.verbose = False
         self.debug_gps_orig = []
-        self.debug_gps_kalman = []
-        self.debug_estimated_position = []
-        self.debug_counter = 0
+        self.debug_pose3d_kf = []
+        self.debug_pose3d_odo = []
 
     def on_nmea_data(self, data):
         lon = data["lon"]
@@ -59,54 +58,23 @@ class LocalizationNode(Node):
                 self.debug_gps_orig.append([x, y])
         else:
             self.con = Convertor((lon, lat))
-        if self.verbose:
-            #kalman_pose3d = self.localization.get_pose3d()  # get last position from kalman
-            #if kalman_pose3d:
-            #    xyz, __ = kalman_pose3d
-            #    if xyz is not None:
-            #        self.debug_gps_kalman.append([xyz[0], xyz[1]])
-            xyz = self.localization.last_xyz
-            if xyz is not None:
-                self.debug_gps_kalman.append([xyz[0], xyz[1]])
+        xyz, orientation = self.localization.get_pose3d_kf()
+        if self.verbose and xyz is not None:
+            self.debug_pose3d_kf.append([xyz[0], xyz[1]])
 
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
         import matplotlib.pyplot as plt
         x, y = list2xy(self.debug_gps_orig)
         plt.plot(x, y, "k+-", label="gps orig")
-        x, y = list2xy(self.debug_gps_kalman)
-        plt.plot(x, y, "bx-", label="gps kalman")
-        x, y = list2xy(self.localization.debug_odo_xyz_processed)
-        plt.plot(x, y, "r.", label="rotated and scaled odometry")
-        x, y = list2xy(self.localization.debug_odo_xyz)
-        plt.plot(x, y, "g.", label="odometry")
-        #x, y = list2xy(self.debug_estimated_position)
-        #plt.plot(x, y, "r.", label="estimation")
+        x, y = list2xy(self.debug_pose3d_kf)
+        plt.plot(x, y, "bx-", label="pose3d from Kalman filter")
+        x, y = list2xy(self.debug_pose3d_odo)
+        plt.plot(x, y, "r.-", label="pose3d from odometry")
         
         plt.legend()
         plt.axis('equal')
         plt.show()
-
-#class GpsLocalization(LocalizationNode):
-#    def __init__(self, config, bus):
-#        super().__init__(config, bus)
-#
-#    def on_nmea_data(self, data):
-#        super().on_nmea_data(data)
-#        if self.verbose:
-#            kalman_pose3d = self.localization.get_pose3d()  # get last position from kalman
-#            if kalman_pose3d:
-#                xyz, __ = kalman_pose3d
-#                if xyz is not None:
-#                    self.debug_gps_kalman.append([xyz[0], xyz[1]])
-#
-#    def on_timer(self, data):
-#        estimated_pose3d = self.localization.get_pose3d(self.time)
-#        if estimated_pose3d:
-#            self.publish("pose3d", estimated_pose3d)
-#            if self.verbose:
-#                (x, y, __), __ = estimated_pose3d
-#                self.debug_estimated_position.append([x, y])
 
 class GpsOdoLocalization(LocalizationNode):
 
@@ -129,16 +97,9 @@ class GpsOdoLocalization(LocalizationNode):
 
         self.localization.update_distance(self.time, dist)
 
-        #print('on_odom:', dist)
-
-        # self.localization.update_dist(dist)
-        #pose3d = self.localization.get_pose3d()
-        #if pose3d:
-        #    self.publish("pose3d", pose3d)
-        #    if self.verbose:  # verbose/debug mode
-        #        xyz, __ = pose3d
-        #        if xyz is not None:
-        #            self.debug_gps_kalman.append([xyz[0], xyz[1]])
+        xyz, orientation = self.localization.get_pose3d_odo()
+        if self.verbose and xyz is not None:
+            self.debug_pose3d_odo.append([xyz[0], xyz[1]])
 
     def on_orientation(self, data):
         """
