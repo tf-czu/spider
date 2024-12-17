@@ -17,16 +17,22 @@ class AngleScaleEstimator:
     """
 
     def __init__(self, history_length = math.inf):
+        """
+            history_length (int): from how many items in the history the
+                resulting angle and scale is computed;
+                `math.inf` (default) means that the resulting angle and scale
+                are computed from all the inputs in the history
+        """
         self.reset()
-        # measurements closer to origin than self.minimal_distance_to_accept are not
-        # processed at all, maximum weight gets measurements at least 
-        # self.distance_with_full_weight from the origin 
+        # measurements closer to origin than `minimal_distance_to_accept` are
+        # not processed at all, maximum weight gets measurements at least
+        # `distance_with_full_weight` from the origin 
         self.minimal_distance_to_accept = 10 
         self.distance_with_full_weight = 100
         # the averaging can be computed over all input data or over last
-        # self.history_length of them, in that case the history is stored in
-        # self.history
-        self.finite_history = (history_length != math.inf) #to distinguish between the two types of the estimator
+        # `history_length` of them, in that case the history is stored in
+        # `history`
+        self.finite_history = (history_length != math.inf) # to distinguish between the two types of the estimator
         if history_length < math.inf:
             self.history_length = history_length
         
@@ -36,20 +42,23 @@ class AngleScaleEstimator:
         """
         self.angle = None
         self.scale = None
-        self.total_weight = 0 #used when history_length is infinity
-        self.angle_history = []               #used when history_length is finite
-        self.scale_history = []               #used when history_length is finite
-        self.weight_history = []              #used when history_length is finite
+        self.total_weight = 0    # used when `history_length` is infinite
+        self.angle_history = []  # used when `history_length` is finite
+        self.scale_history = []  # used when `history_length` is finite
+        self.weight_history = [] # used when `history_length` is finite
 
     def get_distance_from_origin(self, position):
-        # assuming the starting position to be [0,0]
+        """
+            Returns (float): the Euclidean distance of `position` from `[0, 0]`
+        """
+        # assuming the starting position to be [0, 0]
         return np.sqrt(position[0]**2+position[1]**2)
 
     def weight_by_distance(self, d):
         """
-            Close to the origin the weight is zero, than it linearly increases
-            up to 1, if the distance from the origin is greater
-            than self.distance_with_full_weight it gets 1
+            Close to the origin the weight is zero, then it linearly increases
+                up to 1, if the distance from the origin is greater than
+                self.distance_with_full_weight it gets 1.
         """
         if d < self.minimal_distance_to_accept:
             return 0
@@ -60,12 +69,14 @@ class AngleScaleEstimator:
     def calculate_angle(self, b1, b2):
             """
                 Args:
-                    b1: souradnice x, y bodu v rovine
-                    b2: souradnice x, y bodu v rovine
-                Returns angle at [0,0] at which are the points seen, 
-               lis in (-pi, pi>
+                    b1 (list of float): coordinates [x, y]
+                    b2 (list of float): coordinates [x, y]
+
+                Returns (float): float values in in (-pi, pi>; angle at [0, 0]
+                    under which are the points seen, 
+
                 Warning: this function is not continuous, in the case of angles
-                close to pi, it may not work properly
+                    close to pi, it may not work properly
             """
             c1 = np.complex128(b1[0]+b1[1]*1j)
             c2 = np.complex128(b2[0]+b2[1]*1j)
@@ -76,7 +87,8 @@ class AngleScaleEstimator:
                 Args:
                     b1: souradnice x, y bodu v rovine
                     b2: souradnice x, y bodu v rovine
-                Returns the ratio of distances of the points from the origin
+
+                Returns (float): the ratio of distances of the points from the origin
             """
             #print(b1)
             #print(b2)
@@ -97,7 +109,6 @@ class AngleScaleEstimator:
         """
         gps = gps[:2]
         imu = imu[:2]
-
         # weight of the current measurement is given by the closer to origin
         # point of the two
         gps_distance = self.get_distance_from_origin(gps)
@@ -113,15 +124,15 @@ class AngleScaleEstimator:
                 #print(len(self.angle_history))
                 if len(self.angle_history) == self.history_length:
                     # history is full and the last element must be deleted and
-                    # uncalculated
+                    # subtracted
                     # in this case self.angle and self.scale should not be None
                     # by definition
                     angle_to_remove = self.angle_history.pop()
                     scale_to_remove = self.scale_history.pop()
                     weight_to_remove = self.weight_history.pop()
-                    #removing old scale
+                    # removing old scale
                     self.scale = (self.total_weight*self.scale - weight_to_remove*scale_to_remove)/(self.total_weight - weight_to_remove)
-                    #removing old angle
+                    # removing old angle
                     self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
                     v1 = self_vector*self.total_weight
                     vector_to_remove = np.array([math.cos(angle_to_remove), math.sin(angle_to_remove)])
@@ -129,7 +140,7 @@ class AngleScaleEstimator:
                     #print("Removing vector", v2)
                     v = v1-v2
                     self.angle = self.calculate_angle(v,[1,0])
-                    #removing old weight
+                    # removing old weight
                     self.total_weight -= weight_to_remove
                 # adding new measurement
                 # case when only adding measurement to the history, it is
@@ -175,7 +186,6 @@ class AngleScaleEstimator:
 
                 self.total_weight += weight
                 #print("Infinite history", self.total_weight)
-
 
     def get_angle(self):
         """
