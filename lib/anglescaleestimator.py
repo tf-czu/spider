@@ -90,9 +90,6 @@ class AngleScaleEstimator:
 
                 Returns (float): the ratio of distances of the points from the origin
             """
-            #print(b1)
-            #print(b2)
-            #print(self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2))
             return self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2)
 
     def update(self, gps, imu):
@@ -114,14 +111,10 @@ class AngleScaleEstimator:
         gps_distance = self.get_distance_from_origin(gps)
         imu_distance = self.get_distance_from_origin(imu)
         weight = min(self.weight_by_distance(gps_distance), self.weight_by_distance(imu_distance))
-        #print("weight", weight)
         if weight != 0:
             scale = self.calculate_scale(gps, imu)
             angle = self.calculate_angle(gps, imu)
             if self.finite_history:
-                #print(weight)
-                #print("Finite history", self.total_weight)
-                #print(len(self.angle_history))
                 if len(self.angle_history) == self.history_length:
                     # history is full and the last element must be deleted and
                     # subtracted
@@ -137,7 +130,6 @@ class AngleScaleEstimator:
                     v1 = self_vector*self.total_weight
                     vector_to_remove = np.array([math.cos(angle_to_remove), math.sin(angle_to_remove)])
                     v2 = vector_to_remove*weight_to_remove
-                    #print("Removing vector", v2)
                     v = v1-v2
                     self.angle = self.calculate_angle(v,[1,0])
                     # removing old weight
@@ -153,20 +145,16 @@ class AngleScaleEstimator:
                     self.scale = (self.total_weight*self.scale + weight*scale)/(self.total_weight+weight)
                 else:
                     self.scale = scale
-                #print("new added", self.scale)
-
                 if self.angle is not None:
                     self_vector = np.array([math.cos(self.angle), math.sin(self.angle)])
                     v1 = self_vector*self.total_weight
                     new_vector = np.array([math.cos(angle), math.sin(angle)])
                     v2 = new_vector*weight
-                    #print("Adding vector", v2)
                     v = v1+v2
                     self.angle = self.calculate_angle(v,[1,0])
                 else:
                     self.angle = angle
                 self.total_weight += weight
-                #print("Angle", self.angle)
             else:
                 # The case with infinite history
                 if self.scale is not None:
@@ -185,7 +173,6 @@ class AngleScaleEstimator:
                     self.angle = angle
 
                 self.total_weight += weight
-                #print("Infinite history", self.total_weight)
 
     def get_angle(self):
         """
