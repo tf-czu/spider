@@ -124,7 +124,7 @@ class Localization:
         """
         self.tracker.update_distance(time, distance)
         tracker_xyz = self.tracker.get_xyz()
-        self.last_xy_odo_raw = tracker_xyz 
+        self.last_xyz_odo_raw = tracker_xyz 
         # if we cannot say whether the robot si moving or not, nothing happens
         if self.tracker.is_moving() is not None:
             # determining current status

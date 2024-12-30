@@ -107,7 +107,7 @@ class GpsOdoLocalization(LocalizationNode):
 
         xyz_odo_raw = self.localization.get_last_xyz_odo_raw()
         if xyz_odo_raw is not None:
-            self.debug_xyz_odo_raw .append([xyz_odo_raw[0], xyz_odo_raw[1]])
+            self.debug_xyz_odo_raw.append([xyz_odo_raw[0], xyz_odo_raw[1]])
 
     def on_orientation(self, data):
         """
