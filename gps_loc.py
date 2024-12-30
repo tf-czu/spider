@@ -39,6 +39,7 @@ class LocalizationNode(Node):
         self.debug_gps_orig = []
         self.debug_pose3d_kf = []
         self.debug_pose3d_odo = []
+        self.debug_xyz_odo_raw = []
 
     def on_nmea_data(self, data):
         lon = data["lon"]
@@ -61,6 +62,7 @@ class LocalizationNode(Node):
         xyz, orientation = self.localization.get_pose3d_kf()
         if self.verbose and xyz is not None:
             self.debug_pose3d_kf.append([xyz[0], xyz[1]])
+        #self.publish('pose3d', [xyz, orientation])
 
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
@@ -71,6 +73,8 @@ class LocalizationNode(Node):
         plt.plot(x, y, "bx-", label="pose3d from Kalman filter")
         x, y = list2xy(self.debug_pose3d_odo)
         plt.plot(x, y, "r.-", label="pose3d from odometry")
+        x, y = list2xy(self.debug_xyz_odo_raw)
+        plt.plot(x, y, "g.-", label="raw xy from odometry")
         
         plt.legend()
         plt.axis('equal')
@@ -100,6 +104,10 @@ class GpsOdoLocalization(LocalizationNode):
         xyz, orientation = self.localization.get_pose3d_odo()
         if self.verbose and xyz is not None:
             self.debug_pose3d_odo.append([xyz[0], xyz[1]])
+
+        xyz_odo_raw = self.localization.get_last_xyz_odo_raw()
+        if xyz_odo_raw is not None:
+            self.debug_xyz_odo_raw .append([xyz_odo_raw[0], xyz_odo_raw[1]])
 
     def on_orientation(self, data):
         """

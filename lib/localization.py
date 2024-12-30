@@ -15,6 +15,8 @@ class Localization:
         self.last_xyz_kf = None
         # posledni poloha spocitana rotovanou a natahnutou odometrii
         self.last_xyz_odo = None
+        # posledni poloha z IMU a odometrie (bez rotovani a natahnuti)
+        self.last_xyz_odo_raw = None
         # posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
         # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
@@ -122,6 +124,7 @@ class Localization:
         """
         self.tracker.update_distance(time, distance)
         tracker_xyz = self.tracker.get_xyz()
+        self.last_xy_odo_raw = tracker_xyz 
         # if we cannot say whether the robot si moving or not, nothing happens
         if self.tracker.is_moving() is not None:
             # determining current status
@@ -173,6 +176,9 @@ class Localization:
                 self.number_waiting_gps_measurements = 0
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
+
+    def get_last_xyz_odo_raw(self):
+        return self.last_xyz_odo_raw
 
     def get_pose3d_kf(self, time = None):
         """
