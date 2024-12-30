@@ -7,7 +7,8 @@
 	      "in": ["nmea_data", "odom", "orientation"],
 	      "out": ["pose3d"],
 	      "init":{
-            "gps_sd": [2, 2, 6]
+            "gps_err": [2, 2, 6],
+            "imu_err": [2, 2, 6]
           }
       }
     },
@@ -15,8 +16,7 @@
     "links": [
               ["kloubak.pose2d", "localization.odom"],
               ["imu.orientation", "localization.orientation"],
-              ["gps.nmea_data", "localization.nmea_data"],
-              ["gps.position", "localization.timer"]
+              ["gps.nmea_data", "localization.nmea_data"]
     ]
   }
 }

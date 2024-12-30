@@ -1,0 +1,1 @@
+python3 -m osgar.replay --module localization --config ./configs/test-kloubak-gps-odo-imu.json -F --verbose $*
