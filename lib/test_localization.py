@@ -24,7 +24,7 @@ class TestLocalization(unittest.TestCase):
             # simuluj jizdu robota 10 ruznymi smery
             velocity = [random.randint(-10, 10) for j in range(3)]
             num_steps = 10
-            loc = lo.Localization()
+            loc = lo.Localization(gps_err,4)
             gps_xyz = [0, 0, 0]
             for k in range(num_steps):
                 loc.update_xyz_from_gps(time, gps_xyz)
@@ -39,8 +39,8 @@ class TestLocalization(unittest.TestCase):
     def test_extrapolation_in_uniform_linear_motion(self):
         # Simuluje rovnomerny primocary pohyb ve smeru danem vektorem rychlosti
         # `velocity`
-        loc = lo.Localization()
         gps_err = [0.1, 0.1, 0.1]
+        loc = lo.Localization(gps_err, 4)
         freq = 10 # Hz
         period = 1 / freq
         period_timedelta = datetime.timedelta(seconds = period)
@@ -66,8 +66,8 @@ class TestLocalization(unittest.TestCase):
 
     def test_extrapolation_on_square(self):
         # Simuluje pohyb, ktery je skakanim po souradnicich ctverce
-        loc = lo.Localization()
         gps_err = [0.1, 0.1, 0.1]
+        loc = lo.Localization(gps_err,4)
         freq = 10 # Hz
         period = 1 / freq
         period_timedelta = datetime.timedelta(seconds = period)
@@ -105,7 +105,7 @@ class TestLocalization(unittest.TestCase):
         angle = 0
         angular_velocity = 1 # rad / s
         num_steps = 50
-        loc = lo.Localization()
+        loc = lo.Localization(gps_err, 4)
         plot_pos_x = []
         plot_pos_y = []
         plot_gps_x = []

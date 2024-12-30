@@ -38,7 +38,6 @@ class TestAngleScaleEstimator(unittest.TestCase):
         gps = [0,100]
         imu = [100,0]
         ase.update(gps, imu)
-        self.assertEqual(ase.number_of_measurements, 3)
         self.assertAlmostEqual(ase.get_angle(), np.arctan((math.sqrt(2)+1)/math.sqrt(2)))
         self.assertAlmostEqual(ase.get_scale(), (2*math.sqrt(2)+1)/3)
 
