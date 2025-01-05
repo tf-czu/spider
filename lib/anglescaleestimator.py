@@ -29,6 +29,9 @@ class AngleScaleEstimator:
         # `distance_with_full_weight` from the origin 
         self.minimal_distance_to_accept = 10 
         self.distance_with_full_weight = 100
+        # the angle and scale can be calculated with respect to any point, i.e.
+        # self.origin
+        self.origin = [0.0,0.0]
         # the averaging can be computed over all input data or over last
         # `history_length` of them, in that case the history is stored in
         # `history`
@@ -47,12 +50,18 @@ class AngleScaleEstimator:
         self.scale_history = []  # used when `history_length` is finite
         self.weight_history = [] # used when `history_length` is finite
 
+    def set_origin(self, origin):
+        self.origin = origin
+        self.reset()
+
     def get_distance_from_origin(self, position):
         """
-            Returns (float): the Euclidean distance of `position` from `[0, 0]`
+            Returns (float): the Euclidean distance of `position` from
+            self.origin 
         """
         # assuming the starting position to be [0, 0]
-        return np.sqrt(position[0]**2+position[1]**2)
+        #return np.sqrt(position[0]**2+position[1]**2)
+        return np.sqrt((self.origin[0]-position[0])**2+(self.origin[1]-position[1])**2)
 
     def weight_by_distance(self, d):
         """
@@ -78,6 +87,12 @@ class AngleScaleEstimator:
                 Warning: this function is not continuous, in the case of angles
                     close to pi, it may not work properly
             """
+            #recalculating with respect to self.origin
+            for i in range(2):
+                b1[i] -= self.origin[i] 
+                b2[i] -= self.origin[i] 
+
+
             c1 = np.complex128(b1[0]+b1[1]*1j)
             c2 = np.complex128(b2[0]+b2[1]*1j)
             return np.angle(c1/c2)

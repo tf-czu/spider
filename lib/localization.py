@@ -29,7 +29,7 @@ class Localization:
         # je [0.0, 0.0, 0.0] 
         self.average_gps_xyz = [0.0, 0.0, 0.0] 
         #
-        self.ase = AngleScaleEstimator(300)
+        self.ase = AngleScaleEstimator(30)
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
@@ -174,6 +174,8 @@ class Localization:
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 1
+                #self.ase.set_origin(self.last_xyz_kf)
+
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
 
