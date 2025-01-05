@@ -24,7 +24,7 @@ class Localization:
         # vyjadruje aktualni stav robota, bud waiting nebo moving
         self.status = "waiting"
         # potreba pro prumerovani gps pozice behem stani
-        self.number_waiting_gps_measurements = 0
+        self.number_waiting_gps_measurements = 1
         # prumerna pozice gps behem stani, na uplnem pocatku pohybu predpokladame, ze
         # je [0.0, 0.0, 0.0] 
         self.average_gps_xyz = [0.0, 0.0, 0.0] 
@@ -173,7 +173,7 @@ class Localization:
             elif status == "stopping":
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
-                self.number_waiting_gps_measurements = 0
+                self.number_waiting_gps_measurements = 1
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
 
