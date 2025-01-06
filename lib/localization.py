@@ -141,20 +141,21 @@ class Localization:
                 # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
                 # Kalmanova filtru
                 if self.ase.get_angle() is not None and self.ase.get_scale() is not None:
-                    # this works in 2D
-                    # rotates by the angle clockwise
-                    angle = self.ase.get_angle()
-                    matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
-                                                   [-math.sin(angle), math.cos(angle)]])
-                    rotated_IMU_position = matrix_of_rotation @ tracker_xyz[:2]
-                    # scaling
-                    scale = self.ase.get_scale()
-                    rotated_and_scaled_IMU_position = [0,0]
-                    for i in range(2):
-                        rotated_and_scaled_IMU_position[i] = rotated_IMU_position[i] / scale  
-                    # TODO pracuje se pouze s 2D odometrii a pak se k tomu
-                    # prida nulova z-ova souradnice;
-                    # mozna by se mohlo pracovat rovnou s 3D odometrii
+                    ## this works in 2D
+                    ## rotates by the angle clockwise
+                    #angle = self.ase.get_angle()
+                    #matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
+                    #                               [-math.sin(angle), math.cos(angle)]])
+                    #rotated_IMU_position = matrix_of_rotation @ tracker_xyz[:2]
+                    ## scaling
+                    #scale = self.ase.get_scale()
+                    #rotated_and_scaled_IMU_position = [0,0]
+                    #for i in range(2):
+                    #    rotated_and_scaled_IMU_position[i] = rotated_IMU_position[i] / scale  
+                    ## TODO pracuje se pouze s 2D odometrii a pak se k tomu
+                    ## prida nulova z-ova souradnice;
+                    ## mozna by se mohlo pracovat rovnou s 3D odometrii
+                    rotated_and_scaled_IMU_position = self.ase.rotate_and_scale(tracker_xyz[:2])
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
                     self.last_xyz_odo = rotated_and_scaled_IMU_position_3D
@@ -174,7 +175,8 @@ class Localization:
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 1
-                #self.ase.set_origin(self.last_xyz_kf)
+                #self.ase.set_origin(self.last_xyz_kf[:2])
+                print(self.last_xyz_kf)
 
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))

@@ -51,8 +51,30 @@ class AngleScaleEstimator:
         self.weight_history = [] # used when `history_length` is finite
 
     def set_origin(self, origin):
-        self.origin = origin
         self.reset()
+        self.origin = origin
+
+    def rotate_and_scale(self, point):
+        # this works in 2D
+        # rotates by the angle clockwise around the self.origin and scales 
+        angle = self.get_angle()
+        matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
+                                       [-math.sin(angle), math.cos(angle)]])
+        # moving with respect to the origin
+        for i in range(2):
+            point[i] -= self.origin[i]
+
+        rotated_point = matrix_of_rotation @ np.array(point)
+        # scaling
+        scale = self.get_scale()
+        rotated_and_scaled_point = [0,0]
+        for i in range(2):
+            rotated_and_scaled_point[i] = rotated_point[i] / scale  
+        # moving back
+        for i in range(2):
+            rotated_and_scaled_point[i] += self.origin[i]
+        return rotated_and_scaled_point
+                    
 
     def get_distance_from_origin(self, position):
         """
@@ -105,6 +127,11 @@ class AngleScaleEstimator:
 
                 Returns (float): the ratio of distances of the points from the origin
             """
+            #recalculating with respect to self.origin
+            for i in range(2):
+                b1[i] -= self.origin[i] 
+                b2[i] -= self.origin[i] 
+
             return self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2)
 
     def update(self, gps, imu):
