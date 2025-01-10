@@ -17,6 +17,9 @@ class Localization:
         self.last_xyz_odo = None
         # posledni poloha z IMU a odometrie (bez rotovani a natahnuti)
         self.last_xyz_odo_raw = None
+        # rozdil mezi startovni odo a gps pro casti, kdy je prenastaveny pocatek
+        # AngleScale estimatoru, aby obe hodnoty zacinaly zhruba v [0,0]
+        self.diff_odo_gps = [0.0, 0.0, 0.0]
         # posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
         # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
@@ -38,6 +41,7 @@ class Localization:
         # zde bude ulozena puvodni hodnota imu_err pro ucely jejich uprav,
         # nebude se menit
         self.original_imu_err = imu_err
+        self.first_move = True
 
     def set_gps_err(self, gps_err):
         """
@@ -99,7 +103,16 @@ class Localization:
             time_in_seconds, xyz = self.kf.get_last_xyz()
             self.last_xyz_kf = xyz
             # updating AngleScaleEstimator using processed data by KF, not just measured by gps
-            self.ase.update(self.tracker.get_xyz(), xyz_from_gps)
+            tracker_xyz = self.tracker.get_xyz()
+            shifted_tracker_xyz = [0.0, 0.0, 0.0]
+            for i in range(3):
+                shifted_tracker_xyz[i] = tracker_xyz[i] + self.diff_odo_gps[i]
+            self.ase.update(xyz_from_gps, shifted_tracker_xyz)
+            p = xyz_from_gps
+            q = shifted_tracker_xyz
+            distance = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
+            if distance < 1:
+                print("Ase updating:", xyz_from_gps, shifted_tracker_xyz)
 
     def update_orientation(self, time, orientation):
         """
@@ -141,25 +154,21 @@ class Localization:
                 # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
                 # Kalmanova filtru
                 if self.ase.get_angle() is not None and self.ase.get_scale() is not None:
-                    ## this works in 2D
-                    ## rotates by the angle clockwise
-                    #angle = self.ase.get_angle()
-                    #matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
-                    #                               [-math.sin(angle), math.cos(angle)]])
-                    #rotated_IMU_position = matrix_of_rotation @ tracker_xyz[:2]
-                    ## scaling
-                    #scale = self.ase.get_scale()
-                    #rotated_and_scaled_IMU_position = [0,0]
-                    #for i in range(2):
-                    #    rotated_and_scaled_IMU_position[i] = rotated_IMU_position[i] / scale  
+                    # pokud je jiz prenastaveny pocatek AngleScaleEstimatoru,
+                    # musi se souradnice z odometrie posunout tak, aby obe
+                    # mereni (odo a gps) zacinaly ve stejnem miste
+                    shifted_tracker_xyz = [0.0, 0.0, 0.0]
+                    for i in range(3):
+                        shifted_tracker_xyz[i] = tracker_xyz[i] + self.diff_odo_gps[i]
+
                     ## TODO pracuje se pouze s 2D odometrii a pak se k tomu
                     ## prida nulova z-ova souradnice;
                     ## mozna by se mohlo pracovat rovnou s 3D odometrii
-                    rotated_and_scaled_IMU_position = self.ase.rotate_and_scale(tracker_xyz[:2])
+                    rotated_and_scaled_IMU_position = self.ase.rotate_and_scale(shifted_tracker_xyz[:2])
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
                     self.last_xyz_odo = rotated_and_scaled_IMU_position_3D
-                    self.debug_odo_xyz_processed.append((rotated_and_scaled_IMU_position[0], rotated_and_scaled_IMU_position[1]))
+                    self.debug_odo_xyz_processed.append((rotated_and_scaled_IMU_position_3D[0], rotated_and_scaled_IMU_position_3D[1]))
             elif status == "waiting":
                 # robot se nehybe 
                 pass
@@ -171,12 +180,37 @@ class Localization:
                 for i in range(3):
                     gps_err[i] = self._gps_err[i]/self.number_waiting_gps_measurements
                 self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
+                print()
+                print("Setting off") 
+                print("odo raw:", self.last_xyz_odo_raw) 
+                print("odo:", self.last_xyz_odo) 
+                print("gps:", self.last_xyz_kf) 
+                print("Diff", self.diff_odo_gps)
+        
             elif status == "stopping":
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 1
-                #self.ase.set_origin(self.last_xyz_kf[:2])
-                print(self.last_xyz_kf)
+                print()
+                print("Stopping") 
+                print("odo raw:", self.last_xyz_odo_raw)
+                print("odo:", self.last_xyz_odo)
+                print("gps:", self.last_xyz_kf)
+                print("Diff", self.diff_odo_gps)
+                
+                p = self.ase.origin
+                q = self.last_xyz_kf[:2]
+                distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
+                #print("distance", distance_from_last_origin)
+                # origin is reset only if the new one is far from the old one
+                if distance_from_last_origin > 1:
+                    print("Stopping and reseting origin to", self.last_xyz_kf[:2])
+                    self.ase.set_origin(self.last_xyz_kf[:2])
+                    # setting difference of new starting points to shift the IMU
+                    # info so that both gps and IMU "start at the same point"
+                    for i in range(3):
+                        self.diff_odo_gps[i] = self.last_xyz_kf[i] - self.last_xyz_odo_raw[i]  
+                    print("Diff", self.diff_odo_gps)
 
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))

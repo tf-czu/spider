@@ -27,7 +27,7 @@ class AngleScaleEstimator:
         # measurements closer to origin than `minimal_distance_to_accept` are
         # not processed at all, maximum weight gets measurements at least
         # `distance_with_full_weight` from the origin 
-        self.minimal_distance_to_accept = 10 
+        self.minimal_distance_to_accept = 1 
         self.distance_with_full_weight = 100
         # the angle and scale can be calculated with respect to any point, i.e.
         # self.origin
@@ -58,8 +58,8 @@ class AngleScaleEstimator:
         # this works in 2D
         # rotates by the angle clockwise around the self.origin and scales 
         angle = self.get_angle()
-        matrix_of_rotation = np.array([[math.cos(angle), math.sin(angle)],
-                                       [-math.sin(angle), math.cos(angle)]])
+        matrix_of_rotation = np.array([[math.cos(angle), -math.sin(angle)],
+                                       [math.sin(angle), math.cos(angle)]])
         # moving with respect to the origin
         for i in range(2):
             point[i] -= self.origin[i]
@@ -69,7 +69,7 @@ class AngleScaleEstimator:
         scale = self.get_scale()
         rotated_and_scaled_point = [0,0]
         for i in range(2):
-            rotated_and_scaled_point[i] = rotated_point[i] / scale  
+            rotated_and_scaled_point[i] = rotated_point[i] * scale  
         # moving back
         for i in range(2):
             rotated_and_scaled_point[i] += self.origin[i]
@@ -113,7 +113,6 @@ class AngleScaleEstimator:
             for i in range(2):
                 b1[i] -= self.origin[i] 
                 b2[i] -= self.origin[i] 
-
 
             c1 = np.complex128(b1[0]+b1[1]*1j)
             c2 = np.complex128(b2[0]+b2[1]*1j)

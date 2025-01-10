@@ -17,6 +17,11 @@ class TestAngleScaleEstimator(unittest.TestCase):
         ase = AngleScaleEstimator()
         self.assertEqual(ase.get_distance_from_origin([3,4]), 5)
 
+    def test_distance_computation_2(self):
+        ase = AngleScaleEstimator()
+        ase.set_origin([1,1])
+        self.assertEqual(ase.get_distance_from_origin([4,5]), 5)
+
     def test_weight_by_distance(self):
         ase = AngleScaleEstimator()
         d = (ase.distance_with_full_weight + ase.minimal_distance_to_accept)/2
@@ -25,9 +30,29 @@ class TestAngleScaleEstimator(unittest.TestCase):
 
     def test_calculate_angle(self):
         ase = AngleScaleEstimator()
-        c1 = np.complex128(1+1*1j)
-        c2 = np.complex128(0+1*1j)
-        self.assertAlmostEqual(np.angle(c2/c1), np.pi/4)
+        p1 = [1,1]
+        p2 = [0,1]
+        #self.assertAlmostEqual(np.angle(c2/c1), np.pi/4)
+        self.assertAlmostEqual(ase.calculate_angle(p2,p1), np.pi/4)
+
+    def test_calculate_angle_2(self):
+        ase = AngleScaleEstimator()
+        ase.set_origin([1,1])
+        p1 = [2,2]
+        p2 = [0,2]
+        self.assertAlmostEqual(ase.calculate_angle(p2,p1), np.pi/2)
+
+    def test_rotate_and_scale(self):
+        ase = AngleScaleEstimator()
+        ase.set_origin([1,1])
+        ase.angle = np.pi/2
+        ase.scale = 1
+        point = [2,1]
+        rotated_point = ase.rotate_and_scale(point)
+        self.assertAlmostEqual(rotated_point[0],1)
+        self.assertAlmostEqual(rotated_point[1],2)
+
+
 
     def test_update(self):
         ase = AngleScaleEstimator()
