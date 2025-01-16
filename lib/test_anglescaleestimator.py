@@ -40,7 +40,7 @@ class TestAngleScaleEstimator(unittest.TestCase):
         ase.set_origin([1,1])
         p1 = [2,2]
         p2 = [0,2]
-        self.assertAlmostEqual(ase.calculate_angle(p2,p1), np.pi/2)
+        self.assertAlmostEqual(ase.calculate_angle_wrt_origin(p2,p1), np.pi/2)
 
     def test_rotate_and_scale(self):
         ase = AngleScaleEstimator()
@@ -51,8 +51,6 @@ class TestAngleScaleEstimator(unittest.TestCase):
         rotated_point = ase.rotate_and_scale(point)
         self.assertAlmostEqual(rotated_point[0],1)
         self.assertAlmostEqual(rotated_point[1],2)
-
-
 
     def test_update(self):
         ase = AngleScaleEstimator()
@@ -66,6 +64,18 @@ class TestAngleScaleEstimator(unittest.TestCase):
         self.assertAlmostEqual(ase.get_angle(), np.arctan((math.sqrt(2)+1)/math.sqrt(2)))
         self.assertAlmostEqual(ase.get_scale(), (2*math.sqrt(2)+1)/3)
 
+    def test_update_2(self):
+        ase = AngleScaleEstimator()
+        ase.set_origin([100,100])
+        gps = [200,200]
+        imu = [200,100]
+        ase.update(gps, imu)
+        ase.update(gps, imu)
+        gps = [100,200]
+        imu = [200,100]
+        ase.update(gps, imu)
+        self.assertAlmostEqual(ase.get_angle(), np.arctan((math.sqrt(2)+1)/math.sqrt(2)))
+        self.assertAlmostEqual(ase.get_scale(), (2*math.sqrt(2)+1)/3)
 
 
 

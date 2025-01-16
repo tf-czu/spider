@@ -32,7 +32,7 @@ class Localization:
         # je [0.0, 0.0, 0.0] 
         self.average_gps_xyz = [0.0, 0.0, 0.0] 
         #
-        self.ase = AngleScaleEstimator(30)
+        self.ase = AngleScaleEstimator(5)
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
@@ -111,8 +111,8 @@ class Localization:
             p = xyz_from_gps
             q = shifted_tracker_xyz
             distance = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
-            if distance < 1:
-                print("Ase updating:", xyz_from_gps, shifted_tracker_xyz)
+            #if distance < 1:
+            #    print("Ase updating:", xyz_from_gps, shifted_tracker_xyz)
 
     def update_orientation(self, time, orientation):
         """
@@ -180,30 +180,30 @@ class Localization:
                 for i in range(3):
                     gps_err[i] = self._gps_err[i]/self.number_waiting_gps_measurements
                 self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
-                print()
-                print("Setting off") 
-                print("odo raw:", self.last_xyz_odo_raw) 
-                print("odo:", self.last_xyz_odo) 
-                print("gps:", self.last_xyz_kf) 
-                print("Diff", self.diff_odo_gps)
+                #print()
+                #print("Setting off") 
+                #print("odo raw:", self.last_xyz_odo_raw) 
+                #print("odo:", self.last_xyz_odo) 
+                #print("gps:", self.last_xyz_kf) 
+                #print("Diff", self.diff_odo_gps)
         
             elif status == "stopping":
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 1
-                print()
-                print("Stopping") 
-                print("odo raw:", self.last_xyz_odo_raw)
-                print("odo:", self.last_xyz_odo)
-                print("gps:", self.last_xyz_kf)
-                print("Diff", self.diff_odo_gps)
+                #print()
+                #print("Stopping") 
+                #print("odo raw:", self.last_xyz_odo_raw)
+                #print("odo:", self.last_xyz_odo)
+                #print("gps:", self.last_xyz_kf)
+                #print("Diff", self.diff_odo_gps)
                 
                 p = self.ase.origin
                 q = self.last_xyz_kf[:2]
                 distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
                 #print("distance", distance_from_last_origin)
                 # origin is reset only if the new one is far from the old one
-                if distance_from_last_origin > 1:
+                if distance_from_last_origin > 0:
                     print("Stopping and reseting origin to", self.last_xyz_kf[:2])
                     self.ase.set_origin(self.last_xyz_kf[:2])
                     # setting difference of new starting points to shift the IMU

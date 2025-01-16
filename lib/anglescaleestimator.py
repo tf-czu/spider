@@ -52,7 +52,8 @@ class AngleScaleEstimator:
 
     def set_origin(self, origin):
         self.reset()
-        self.origin = origin
+        for i in range(2):
+            self.origin[i] = origin[i]
 
     def rotate_and_scale(self, point):
         # this works in 2D
@@ -61,10 +62,11 @@ class AngleScaleEstimator:
         matrix_of_rotation = np.array([[math.cos(angle), -math.sin(angle)],
                                        [math.sin(angle), math.cos(angle)]])
         # moving with respect to the origin
+        p = [0,0]
         for i in range(2):
-            point[i] -= self.origin[i]
+            p[i] = point[i] - self.origin[i]
 
-        rotated_point = matrix_of_rotation @ np.array(point)
+        rotated_point = matrix_of_rotation @ np.array(p)
         # scaling
         scale = self.get_scale()
         rotated_and_scaled_point = [0,0]
@@ -109,16 +111,34 @@ class AngleScaleEstimator:
                 Warning: this function is not continuous, in the case of angles
                     close to pi, it may not work properly
             """
+            cmp1 = np.complex128(b1[0]+b1[1]*1j)
+            cmp2 = np.complex128(b2[0]+b2[1]*1j)
+            return np.angle(cmp1/cmp2)
+
+    def calculate_angle_wrt_origin(self, b1, b2):
+            """
+                Args:
+                    b1 (list of float): coordinates [x, y]
+                    b2 (list of float): coordinates [x, y]
+
+                Returns (float): float values in in (-pi, pi>; angle at [0, 0]
+                    under which are the points seen, 
+
+                Warning: this function is not continuous, in the case of angles
+                    close to pi, it may not work properly
+            """
             #recalculating with respect to self.origin
+            c1 = [0,0]
+            c2 = [0,0]
             for i in range(2):
-                b1[i] -= self.origin[i] 
-                b2[i] -= self.origin[i] 
+                c1[i] = b1[i] - self.origin[i] 
+                c2[i] = b2[i] - self.origin[i] 
 
-            c1 = np.complex128(b1[0]+b1[1]*1j)
-            c2 = np.complex128(b2[0]+b2[1]*1j)
-            return np.angle(c1/c2)
+            cmp1 = np.complex128(c1[0]+c1[1]*1j)
+            cmp2 = np.complex128(c2[0]+c2[1]*1j)
+            return np.angle(cmp1/cmp2)
 
-    def calculate_scale(self, b1, b2):
+    def calculate_scale_wrt_origin(self, b1, b2):
             """
                 Args:
                     b1: souradnice x, y bodu v rovine
@@ -127,10 +147,6 @@ class AngleScaleEstimator:
                 Returns (float): the ratio of distances of the points from the origin
             """
             #recalculating with respect to self.origin
-            for i in range(2):
-                b1[i] -= self.origin[i] 
-                b2[i] -= self.origin[i] 
-
             return self.get_distance_from_origin(b1)/self.get_distance_from_origin(b2)
 
     def update(self, gps, imu):
@@ -153,8 +169,8 @@ class AngleScaleEstimator:
         imu_distance = self.get_distance_from_origin(imu)
         weight = min(self.weight_by_distance(gps_distance), self.weight_by_distance(imu_distance))
         if weight != 0:
-            scale = self.calculate_scale(gps, imu)
-            angle = self.calculate_angle(gps, imu)
+            scale = self.calculate_scale_wrt_origin(gps, imu)
+            angle = self.calculate_angle_wrt_origin(gps, imu)
             if self.finite_history:
                 if len(self.angle_history) == self.history_length:
                     # history is full and the last element must be deleted and
