@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "gps": {
+          "driver": "gps",
+          "in": ["raw"],
+          "out": ["position", "rel_position"],
+          "init": {}
+      },
+      "gps_serial": {
+          "driver": "serial",
+          "in": [],
+          "out": ["raw"],
+          "init": {"port": "/dev/ttyACM0", "speed": 115200}
+      },
+
+      "oak_camera": {
+          "driver": "osgar.drivers.oak_camera:OakCamera",
+          "init": {
+            "fps": 5,
+            "is_color": true,
+            "is_depth": true,
+            "laser_projector_current": 1200,
+            "is_imu_enabled": true,
+            "number_imu_records": 20,
+            "disable_magnetometer_fusion": true,
+            "cam_ip": "192.168.1.53",
+
+            "mono_resolution": "THE_720_P",
+            "color_resolution": "THE_1080_P",
+            "color_manual_focus": 130,
+            "color_manual_exposure": [2000, 800],
+
+            "stereo_median_filter": "KERNEL_3x3",
+            "stereo_mode": "HIGH_ACCURACY",
+            "stereo_extended_disparity": false,
+            "stereo_subpixel": true,
+            "stereo_left_right_check": true
+          }
+      }
+
+    },
+    "links": [["gps_serial.raw", "gps.raw"]]
+  }
+}
+
