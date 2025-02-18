@@ -17,7 +17,18 @@ class Speedometer:
             * `get_speed()`
     """
 
-    def __init__(self):
+    def __init__(self, period = 1, threshold = 0.01):
+        """
+            Args:
+                period (float): the length of the time ineterval (in seconds)
+                    over which the average velocity (in is_moving()) will be
+                    computed
+                threshold (float): the border value of the average velocity (is
+                    meters per second) to distinguish whether the robot is moving
+                    or not; see the method is_moving()
+        """
+        self.period = period
+        self.threshold = threshold
         self.hard_reset()
 
     def update(self, time, distance):
@@ -73,35 +84,51 @@ class Speedometer:
             #print(t_a, s_a, t_b, s_b)
             return (s_b - s_a) / (t_b.total_seconds() - t_a.total_seconds())
 
-    def is_moving(self):
+    def compute_average_velocity_over_last_period(self):
         """
-            Returns (bool): `True` if the robot is moving at the moment;
-                `False` if it is not moving; `None` is the moving state cannot
-                be determined
+            Returns (float): the average velocity over the last time interval
+                given by the value of self.period;
+                if this cannot be computed (if there is not enough data in the
+                time sequence) `None` is returned
         """
         if len(self.history) < 3:
             return None
         (t_start, s_start) = self.history[0]
         (t_end, s_end) = self.history[-1]
-        # pokud neubehla alespon jedna vterina, vrat `None`
-        if (t_end - t_start).total_seconds() < 1:
+        # if the measured time sequence if shorter than self.period, return `None`
+        if (t_end - t_start).total_seconds() < self.period:
             return None
-        # spocitej prumernou rychlost za posledni jednu vterinu
+        # compute the average velocity
         index = len(self.history) - 1
         while index >= 0:
             (t, s) = self.history[index]
             dt = (t_end - t).total_seconds()
-            if dt >= 1.0:
+            if dt >= self.period:
                 ds = s_end - s
-                avg_vel = ds / dt
-                #print(avg_vel, '=', ds, '/', dt)
-                if abs(avg_vel) >= 0.01: # 1cm per second
-                    return True
-                else:
-                    return False
+                return ds / dt
             index -= 1
-
         return None
+
+    def is_moving(self):
+        """
+            Detects whether the robot is moving, or not.
+
+            The method calculates the average velocity over the last time
+                interval; the length of this interval is given by self.period.
+            If this average velocity is greater or equal to the value of
+                `self.threshold` then the robot is considered to be moving.
+
+            Returns (bool): `True` if the robot is moving at the moment;
+                `False` if it is not moving; `None` is the moving state cannot
+                be determined
+        """
+        avg_vel = self.compute_average_velocity_over_last_period()
+        if avg_vel is None:
+            return None
+        elif abs(avg_vel) >= self.threshold:
+            return True
+        else:
+            return False
 
 class Tracker:
     """
