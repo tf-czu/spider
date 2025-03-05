@@ -4,6 +4,7 @@
 
 import math
 import collections
+import copy
 
 from osgar.node import Node
 from osgar.lib.route import Convertor
@@ -36,10 +37,12 @@ class LocalizationNode(Node):
         self.con = None # GPS convertor to planar coordinates
         self.alt_0 = None
         self.verbose = False
-        self.debug_gps_orig = []
+        self.debug_gps_orig_moving = []
+        self.debug_gps_orig_waiting = []
         self.debug_pose3d_kf = []
         self.debug_pose3d_odo = []
         self.debug_xyz_odo_raw = []
+        self.debug_starting_points = [[0.0,0.0]]
 
     def on_nmea_data(self, data):
         lon = data["lon"]
@@ -56,7 +59,10 @@ class LocalizationNode(Node):
             x, y = self.con.geo2planar((lon, lat))
             self.localization.update_xyz_from_gps(self.time, [x, y, z])
             if self.verbose:
-                self.debug_gps_orig.append([x, y])
+                if self.localization.status == "waiting":
+                    self.debug_gps_orig_waiting.append([x, y])
+                else:
+                    self.debug_gps_orig_moving.append([x, y])
         else:
             self.con = Convertor((lon, lat))
         xyz, orientation = self.localization.get_pose3d_kf()
@@ -67,14 +73,18 @@ class LocalizationNode(Node):
     def draw(self):
         # in verbose mode and with --draw parameter: draw a plot
         import matplotlib.pyplot as plt
-        x, y = list2xy(self.debug_gps_orig)
-        plt.plot(x, y, "k+-", label="gps orig")
+        x, y = list2xy(self.debug_gps_orig_moving)
+        plt.plot(x, y, "k+-", label="gps orig moving")
+        x, y = list2xy(self.debug_gps_orig_waiting)
+        plt.plot(x, y, "m+-", label="gps orig waiting")
         x, y = list2xy(self.debug_pose3d_kf)
         plt.plot(x, y, "bx-", label="pose3d from Kalman filter")
         x, y = list2xy(self.debug_pose3d_odo)
         plt.plot(x, y, "r.-", label="pose3d from odometry")
         x, y = list2xy(self.debug_xyz_odo_raw)
         plt.plot(x, y, "g.-", label="raw xy from odometry")
+        x, y = list2xy(self.debug_starting_points)
+        plt.plot(x, y, "mo", label="starting points of Kalman filter")
         
         plt.legend()
         plt.axis('equal')
@@ -105,9 +115,12 @@ class GpsOdoLocalization(LocalizationNode):
         if self.verbose and xyz is not None:
             self.debug_pose3d_odo.append([xyz[0], xyz[1]])
 
-        xyz_odo_raw = self.localization.get_last_xyz_odo_raw()
-        if xyz_odo_raw is not None:
-            self.debug_xyz_odo_raw.append([xyz_odo_raw[0], xyz_odo_raw[1]])
+        if self.verbose:
+            xyz_odo_raw = self.localization.get_last_xyz_odo_raw()
+            if xyz_odo_raw is not None:
+                self.debug_xyz_odo_raw.append([xyz_odo_raw[0], xyz_odo_raw[1]])
+            if self.localization.ase.origin != self.debug_starting_points[-1]:
+                self.debug_starting_points.append(copy.deepcopy(self.localization.ase.origin))
 
     def on_orientation(self, data):
         """

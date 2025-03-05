@@ -17,7 +17,7 @@ class Speedometer:
             * `get_speed()`
     """
 
-    def __init__(self, period = 1, threshold = 0.01):
+    def __init__(self, period = 1, threshold = 0.03):
         """
             Args:
                 period (float): the length of the time ineterval (in seconds)

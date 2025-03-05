@@ -13,6 +13,8 @@ class Localization:
         self.kf = KalmanFilterLocalization()
         # posledni poloha spocitana Kalmanovym filtrem
         self.last_xyz_kf = None
+        # posledni poloha podle GPS
+        self.last_xyz_gps = None
         # posledni poloha spocitana rotovanou a natahnutou odometrii
         self.last_xyz_odo = None
         # posledni poloha z IMU a odometrie (bez rotovani a natahnuti)
@@ -33,9 +35,13 @@ class Localization:
         self.average_gps_xyz = [0.0, 0.0, 0.0] 
         #
         self.ase = AngleScaleEstimator(5)
+        #maximalni vzdalenost od pocatku AngleScaleEstimatoru, kdyz se zacne
+        #zmensovat, prenastavi se pocatek
+        self.max_dist_from_origin = 0
         # DEBUG data
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
+        self.debug_starting_points = [] # souradnice ase.origin v prubehu jizdy (x, y)
         self._gps_err = gps_err 
         self._imu_err = imu_err
         # zde bude ulozena puvodni hodnota imu_err pro ucely jejich uprav,
@@ -89,6 +95,7 @@ class Localization:
                 gps_err (list of float): error `[s_x, s_y, s_z]` of
                     `xyz_from_gps` (as standard deviations, in meters)
         """
+        self.last_xyz_gps = xyz_from_gps
         if self.status == "waiting":
             # averaging gps measurements while not moving
             if self.number_waiting_gps_measurements == 0:
@@ -98,6 +105,27 @@ class Localization:
             self.number_waiting_gps_measurements += 1
             self.last_xyz_kf = self.average_gps_xyz 
         elif self.status == "moving":
+            #remembering max distance from origin
+            p = self.ase.origin
+            q = xyz_from_gps
+            distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
+            self.max_dist_from_origin = max(self.max_dist_from_origin, distance_from_last_origin)
+
+            #reseting origin in case of returning to much back
+            if self.max_dist_from_origin > distance_from_last_origin + 2:
+                self.max_dist_from_origin = 0
+                self.kf = KalmanFilterLocalization()
+                # pocet gps mereni behem stani snizuje chybu
+                #self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
+                #print("Resetting AngleScaleEstimator and origin to", xyz_from_gps[:2])
+                self.ase.set_origin(self.last_xyz_gps[:2])
+                # setting difference of new starting points to shift the IMU
+                # info so that both gps and IMU "start at the same point"
+                for i in range(3):
+                    self.diff_odo_gps[i] = self.last_xyz_gps[i] - self.last_xyz_odo_raw[i]  
+                self.debug_starting_points.append((self.ase.origin[0], self.ase.origin[1]))
+                #print("Diff", self.diff_odo_gps)
+
             # updating Kalman filter
             self.kf.input(xyz_from_gps, time.total_seconds(), self._gps_err)
             time_in_seconds, xyz = self.kf.get_last_xyz()
@@ -151,6 +179,7 @@ class Localization:
                 status = "stopping"
             #
             if status == "moving":
+                
                 # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
                 # Kalmanova filtru
                 if self.ase.get_angle() is not None and self.ase.get_scale() is not None:
@@ -184,8 +213,23 @@ class Localization:
                 #print("Setting off") 
                 #print("odo raw:", self.last_xyz_odo_raw) 
                 #print("odo:", self.last_xyz_odo) 
-                #print("gps:", self.last_xyz_kf) 
+                #print("gps:", self.average_gps_xyz) 
                 #print("Diff", self.diff_odo_gps)
+                p = self.ase.origin
+                q = self.average_gps_xyz
+                distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
+                #print("distance", distance_from_last_origin)
+                # origin is reset only if the new one is far from the old one
+                if distance_from_last_origin > 1:
+                    #print("Setting off and reseting origin to", self.average_gps_xyz[:2])
+                    self.ase.set_origin(self.average_gps_xyz[:2])
+                    # setting difference of new starting points to shift the IMU
+                    # info so that both gps and IMU "start at the same point"
+                    for i in range(3):
+                        self.diff_odo_gps[i] = self.average_gps_xyz[i] - self.last_xyz_odo_raw[i]  
+                    self.debug_starting_points.append((self.ase.origin[0], self.ase.origin[1]))
+                    #print("Diff", self.diff_odo_gps)
+
         
             elif status == "stopping":
                 self.status = "waiting"
@@ -198,19 +242,6 @@ class Localization:
                 #print("gps:", self.last_xyz_kf)
                 #print("Diff", self.diff_odo_gps)
                 
-                p = self.ase.origin
-                q = self.last_xyz_kf[:2]
-                distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
-                #print("distance", distance_from_last_origin)
-                # origin is reset only if the new one is far from the old one
-                if distance_from_last_origin > 0:
-                    print("Stopping and reseting origin to", self.last_xyz_kf[:2])
-                    self.ase.set_origin(self.last_xyz_kf[:2])
-                    # setting difference of new starting points to shift the IMU
-                    # info so that both gps and IMU "start at the same point"
-                    for i in range(3):
-                        self.diff_odo_gps[i] = self.last_xyz_kf[i] - self.last_xyz_odo_raw[i]  
-                    print("Diff", self.diff_odo_gps)
 
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
