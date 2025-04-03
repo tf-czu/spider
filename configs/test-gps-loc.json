@@ -16,8 +16,8 @@
       },
       "localization": {
 	      "driver": "gps_loc:GpsLocalization",
-	      "in": ["nmea_data"],
-	      "out": ["pose3d"],
+	      "in": ["nmea_data (poznamka)"],
+	      "out": ["pose3d (poznamka)"],
 	      "init":{
             "gps_sd": [0.03, 0.03, 0.09]
           }
