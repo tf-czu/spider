@@ -24,7 +24,7 @@ class LSqrLoc(Node):
         # initial angle (in radians) and scale;
         # this is utilized to estimate pose3d at the start part of the
         # trajectory when the distance travelled is still shorter than the
-        initial_angle  = config.get('initial_angle', -1.3)   
+        initial_angle  = config.get('initial_angle', -75)   
         initial_scale  = config.get('initial_scale',  1.0)   
         initial_window = config.get('initial_window', 1.0)   
         #

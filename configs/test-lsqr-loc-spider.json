@@ -21,7 +21,7 @@
 	      "init":{
             "window": 20,
             "prune": 20,
-            "initial_angle": -1.3,
+            "initial_angle": -75,
             "initial_scale":  1.0,
             "initial_window": 3.0
           }

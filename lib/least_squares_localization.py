@@ -394,7 +394,6 @@ class LeastSquaresLocalization:
     def __init__(self, window,
                  post_window = None,
                  prune = 1,
-                 initial_quaternion = None,
                  initial_angle = None,
                  initial_scale = 1.0,
                  initial_window = 1.0):
@@ -422,9 +421,9 @@ class LeastSquaresLocalization:
                         computation.
                     The dafault value `1` means that *every* item of the input
                         data is involved.
-                initial_quaternion (list):
-                initial_angle (float):
+                initial_angle (float): initial angle in degrees
                 initial_scale (float):
+                initial_window (float):
         """
         self.prune = prune
         # trajectory computed in real time, that is, a new position is computed
@@ -462,15 +461,13 @@ class LeastSquaresLocalization:
         self.nmea_parser = NMEAParser()
         self.odo_parser = OdometryParser()
         # initial values
-        if initial_quaternion is not None:
-            self.init_qua = initial_quaternion
-            self.init_angle = 2*math.acos(initial_quaternion[3])
-        elif initial_angle is not None:
-            self.init_angle = initial_angle
-            self.init_qua = [0.0, 0.0, math.sin(initial_angle / 2), math.cos(initial_angle / 2)]
-        else:
-            self.init_angle = None
+        if initial_angle is None:
             self.init_qua = None
+        else:
+            # uhel pro urceni kvaternionu je polovicni, jinak bych to nasobil
+            # 180 stupni a ne 90
+            angle_half = math.pi * initial_angle / 360.0
+            self.init_qua = [0.0, 0.0, math.sin(angle_half), math.cos(angle_half)]
         self.init_sca = initial_scale
         self.init_win = initial_window
         # output
