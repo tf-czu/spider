@@ -396,7 +396,8 @@ class LeastSquaresLocalization:
                  prune = 1,
                  initial_quaternion = None,
                  initial_angle = None,
-                 initial_scale = 1.0):
+                 initial_scale = 1.0,
+                 initial_window = 1.0):
         """
             Args:
                 window (float): window size; can be a number or a tuple;
@@ -471,6 +472,7 @@ class LeastSquaresLocalization:
             self.init_angle = None
             self.init_qua = None
         self.init_sca = initial_scale
+        self.init_win = initial_window
         # output
         self.pose3d = None
         # for debugging
@@ -668,7 +670,11 @@ class LeastSquaresLocalization:
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
-                    weight = abs(self.odo_parser.get_distance_travelled() / self.window)
+                    travelled = abs(self.odo_parser.get_distance_travelled())
+                    if travelled > self.init_win:
+                        weight = 1.0
+                    else:
+                        weight = travelled / self.init_win
                     qua = slerp(self.init_qua, qua_est, weight)
                     sca = (1 - weight)*self.init_sca + weight*sca_est
                     pose3d_xyz = rotate_and_scale_by_quaternion(qua, sca, last.odo, first.odo, first.gps)
