@@ -1,7 +1,63 @@
 # -*- coding: UTF-8 -*-
 
 """
-    TODO
+    Computes trajectory from asynchronously provided GPS, odometry, and IMU
+        data.
+
+    Author:
+        Milan Petrík, petrikm@tf.czu.cz
+
+    IMPORTANT:
+        It is expected, that the GPS, odometry, and IMU data are provided
+            asynchronously, however, constantly.
+        That is, no gaps!
+        Actually, the synchronization is performed in a very naive way:
+            with each new data from odometry, the last data from GPS and IMU
+            are taken and this triplet is then stored to the list
+            `sync_gps_odo` from which the resulting trajectory is being
+            computed.
+        Hence, the algorithm will probably behave inpredictibly if, e.g.,
+            the GPS data are not provided for a longer period.
+
+    Algorithm:
+
+        There are the following observations:
+            * GPS has a significant non-Gaussian error and the correct position
+                can differ by several meters, however, GPS also provides data that
+                are well reliable on long distances.
+            * Odometry provides the distance travelled which differs from the
+                real distance travelled by a scale factor.
+            * IMU gives an orientation which is, however, relative. Hence its
+                initial orientation may differ from the real initial orientation
+                significantly.
+
+        The algorithm is based on the idea of computing the trajectory from
+            odometry and IMU and then rotating and scaling it such that it fits
+            best (the least squares method) to the trajectory given by GPS.
+        This approach would work perfectly if the scale error of the odometry
+            and the angle error of the IMU would be constant ... they are not.
+        The algorithm therefore does not compute the scale and the angle error
+            from the whole input data series but uses a moving window.
+        This also allows a computation of the trajectory in real time.
+
+    Contents:
+
+        * `SyncGpsOdo`: named tuple representing one item in the list of
+            synchronized GPS and odometry positions
+        * `slerp()`: interpolates two quaternions utilizing the Spherical
+            Linear intERPolation (SLERP)
+        * `draw_trajectories()`: draws a plot of several trajectories using the
+            matplotlib module
+        * `compute_rotation_and_scale()`: utilizing the least squares method,
+            computes rotation angle and scale coefficient between two series of
+            positions (trajectories) measured by GPS and odometry
+        * `rotate_and_scale()`: rotates and scales a vector utilizing the
+            quaternion arithmetic
+        * `NMEAParser`: converts GPS data to Cartesian coordinates
+        * `OdometryParser`: converts odometry and IMU data to Cartesian
+            coordinates
+        * `LeastSquaresLocalization`: the main class inherited from
+            osgar.node.Node that computes the trajectory
 """
 
 import math
@@ -11,7 +67,6 @@ from collections import namedtuple
 from osgar.lib.route import Convertor as GPSConvertor
 import osgar.lib.quaternion as quaternion
 from osgar.node import Node
-
 
 # SyncGpsOdo
 # ... named tuple representing one item in the list of synchronized GPS and
@@ -55,6 +110,7 @@ def slerp(A, B, t):
             B[i] = -B[i]
         dotAB = -dotAB
     if dotAB > 0.9995:
+        # -----------------------------------------------------
         # linear interpolation (actually, a convex combination)
         # -----------------------------------------------------
         # (if the dot product is close to 1, the quaternions are very close)
@@ -69,6 +125,7 @@ def slerp(A, B, t):
             result[i] /= norm_of_result 
         return result
     else:
+        # --------------------------------------
         # Spherical Linear intERPolation (SLERP)
         # --------------------------------------
         alpha = math.acos(dotAB) # the angle between the quaternions
@@ -349,6 +406,44 @@ class OdometryParser:
         return self.distance_travelled
 
 class LeastSquaresLocalization(Node):
+    """
+        Computes trajectory from asynchronously provided GPS, odometry, and IMU
+            data.
+
+        Attributes:
+
+            * `sync_gps_odo` (list of SyncGpsOdo): synchronized input data
+                = positions from GPS and odometry+IMU
+            * `last_sync_gps` (list of float): x, y, z representing the last
+                position obtained from GPS (z is always 0.0)
+            * `last_sync_ori` (list of float): quaternion representing the last
+                orientation obtained from IMU
+            * `pose3d` (list of list of float): output ... list with two items
+                containing position and orientation
+
+            * `trajectory` (list of pose3d): real-time computed trajectory
+            * `window` (float): length of this window in meters
+            * `window_first_index` (int): first position of `window` in
+                `sync_gps_odo`
+
+            * `post_trajectory` (list of pose3d): trajectory computed when all
+                data are gathered
+            * `post_window` (float): length of this window in meters 
+
+            * `prune` (int): pruning of the input data; if prune == n then only
+                every n-th item of `sync_gps_odo` is considered when computing
+                rotation and scale
+
+            * `initial_scale` (float): initial scale
+            * `initial_rotation` (list of float): initial rotation as a quaternion
+            * `initial_window` (float): initial length (in meters) of the
+                trajectory on which the trajectory is estimated by `initial_scale`
+                and `initial_rotation`
+
+            * `nmea_parser` (NMEAParser): parses input GPS data
+            * `odo_parser` (OdometryParser): parses input odometry and IMU data
+    """
+
     def __init__(self, config, bus):
         super().__init__(config, bus)
         # register a stream to be published
@@ -389,7 +484,6 @@ class LeastSquaresLocalization(Node):
         # series of synchronized positions from GPS and odometry
         self.sync_gps_odo = []
         self.last_sync_gps = None
-        self.last_sync_odo = None
         self.last_sync_ori = None
         # data parsers
         self.nmea_parser = NMEAParser()
@@ -443,11 +537,10 @@ class LeastSquaresLocalization(Node):
         distance_3d = self.odo_parser.parse_odometry(data)
         xyz = self.odo_parser.get_xyz()
         if xyz is not None:
-            self.last_sync_odo = xyz
             if self.last_sync_gps is not None:
                 s = SyncGpsOdo(time = self.time,
                                gps = self.last_sync_gps,
-                               odo = self.last_sync_odo,
+                               odo = xyz,
                                ori = self.last_sync_ori,
                                tra = self.odo_parser.get_distance_travelled())
                 self.sync_gps_odo.append(s)
@@ -462,8 +555,8 @@ class LeastSquaresLocalization(Node):
             Process next data obtained from IMU.
 
             Args:
-                data (list of float): list of four values forming a quaternion
-                    that represents the orientation of the robot
+                data (list of float): list of four values representing a
+                    quaternion that represents the orientation of the robot
         """
         self.odo_parser.parse_orientation(data)
         self.last_sync_ori = data
