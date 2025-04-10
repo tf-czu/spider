@@ -350,80 +350,50 @@ class OdometryParser:
 
 class LeastSquaresLocalization(Node):
     def __init__(self, config, bus):
-        print("PRDEL")
         super().__init__(config, bus)
         # register a stream to be published
         bus.register('pose3d')
-        # moving window in meters
-        window = config.get('window', 5)
+        # ----------------------------------------------------
+        # attributes for computing the trajectory in real time
+        # ----------------------------------------------------
+        # with every odometry tick
+        self.trajectory = []
+        # `window` ... length of the moving window in meters
+        # used when the trajectory is computed in real time
+        # 
+        self.window = config.get('window', 5)
+        self.window_first_index = None # position of the moving window
         # window that is used when the trajectory is supposed to be computed by
         # post-processing, that is, when all the data are gathered;
         # if `None` then no post-processed trajectory is computed
-        post_window = config.get('post_window', None)
+        # trajectory computed by post-processing, that is, when enough data is
+        # gathered
+        self.post_window = config.get('post_window', None)
+        self.post_trajectory = []
         # pruning of the data;
         # only every n-th data sample is taken when performing the
         # least-squares method
-        prune = config.get('prune', 1)   
-        # initial angle (in radians) and scale;
+        self.prune = config.get('prune', 1)   
+        # initial angle (in radians), scale and rotation quaternion
         # this is utilized to estimate pose3d at the start part of the
         # trajectory when the distance travelled is still shorter than the
-        initial_angle  = config.get('initial_angle', -75)   
-        initial_scale  = config.get('initial_scale',  1.0)   
-        initial_window = config.get('initial_window', 1.0)   
-        #
-        #self.localization = xxxLeastSquaresLocalization(
-        #                            window,
-        #                            post_window = post_window,
-        #                            prune = prune,
-        #                            initial_angle = initial_angle,
-        #                            initial_scale = initial_scale,
-        #                            initial_window = initial_window
-        #                        )
-        self.prune = prune
-        # trajectory computed in real time, that is, a new position is computed
-        # with every odometry tick
-        if isinstance(window, tuple):
-            self.window = window[0]
-            self.window_unit = window[1]
+        self.initial_scale  = config.get('initial_scale',  1.0)   
+        self.initial_window = config.get('initial_window', 1.0)   
+        initial_angle       = config.get('initial_angle', -75)   
+        if initial_angle is None:
+            self.initial_rotation = None
         else:
-            self.window = window
-            self.window_unit = "m"
-        self.trajectory = []
-        self.window_first_index = None # position of the moving window
-        # trajectory computed by post-processing, that is, when enough data is
-        # gathered
-        if post_window is None:
-            self.post_processing = False
-            self.post_window = None
-            self.post_window_unit = None
-            self.post_trajectory = None
-        elif isinstance(window, tuple):
-            self.post_processing = True
-            self.post_window = post_window[0]
-            self.post_window_unit = post_window[1]
-            self.post_trajectory = []
-        else:
-            self.post_processing = True
-            self.post_window = post_window
-            self.post_window_unit = "m"
-            self.post_trajectory = []
+            # half-angle to determine the rotation quaternion
+            angle_half = math.pi * initial_angle / 360.0
+            self.initial_rotation = [0.0, 0.0, math.sin(angle_half), math.cos(angle_half)]
         # series of synchronized positions from GPS and odometry
         self.sync_gps_odo = []
         self.last_sync_gps = None
         self.last_sync_odo = None
         self.last_sync_ori = None
+        # data parsers
         self.nmea_parser = NMEAParser()
         self.odo_parser = OdometryParser()
-        # initial values
-        if initial_angle is None:
-            self.init_qua = None
-        else:
-            # uhel pro urceni kvaternionu je polovicni, jinak bych to nasobil
-            # 180 stupni a ne 90
-            angle_half = math.pi * initial_angle / 360.0
-            self.init_qua = [0.0, 0.0, math.sin(angle_half), math.cos(angle_half)]
-        self.init_sca = initial_scale
-        self.init_win = initial_window
         # output
         self.pose3d = None
         # for debugging
@@ -431,28 +401,12 @@ class LeastSquaresLocalization(Node):
         self.plot_init = []
         self.plot_est = []
 
-
-    #def on_nmea_data(self, data):
-    #    self.localization.add_gps(self.time, data)
-#
-#    def on_odom(self, data):
-#        self.localization.add_odo(self.time, data)
-#
-#    def on_orientation(self, data):
-#        self.localization.add_ori(self.time, data)
-#
-#    def draw(self):
-#        self.localization.draw()
-#
     def on_nmea_data(self, data):
         """
             Process next data obtained from GPS.
 
             Args:
-                timestamp (datetime.timedelta): (absolute) time;
-                    Note that the time in seconds can be obtained by calling
-                    `timestamp.total_seconds()`.
-                gps (dict): GPS data according to NMEA format;
+                data (dict): GPS data according to NMEA format;
                     contains keys:
                         * `"identifier"`
                         * `"lon"`
@@ -480,10 +434,7 @@ class LeastSquaresLocalization(Node):
             Process next data obtained from odometry.
 
             Args:
-                timestamp (datetime.timedelta): (absolute) time;
-                    Note that the time in seconds can be obtained by calling
-                    `timestamp.total_seconds()`.
-                odo (list of int): list of three values `[x, y, heading]`
+                data (list of int): list of three values `[x, y, heading]`
                     where:
                     * `x` ... x-coordinate in [mm] originating from odometry
                     * `y` ... y-coordinate in [mm] originating from odometry
@@ -503,6 +454,7 @@ class LeastSquaresLocalization(Node):
                 self.compute_trajectory()
         pose3d = self.get_pose3d()
         if pose3d is not None:
+            # publish pose3d
             self.plot_pose3d.append(pose3d[0])
 
     def on_orientation(self, data):
@@ -510,9 +462,6 @@ class LeastSquaresLocalization(Node):
             Process next data obtained from IMU.
 
             Args:
-                timestamp (datetime.timedelta): (absolute) time;
-                    Note that the time in seconds can be obtained by calling
-                    `timestamp.total_seconds()`.
                 data (list of float): list of four values forming a quaternion
                     that represents the orientation of the robot
         """
@@ -523,10 +472,6 @@ class LeastSquaresLocalization(Node):
         """
             Returns (list): list with two items
         """
-        #if len(self.trajectory) == 0:
-        #    return None
-        #else:
-        #    return self.trajectory[-1]
         return self.pose3d
 
     def compute_post_process_trajectory(self):
@@ -547,11 +492,6 @@ class LeastSquaresLocalization(Node):
             first_index = len_post_trajectory - 1
             assert first_index > 0
         last_index = len(self.sync_gps_odo) - 1
-        # TODO Tady bude vyhledove rozliseni, v jakych jednotkach `post_window`
-        # je a podle toho se pak spocita "vzdalenost" a porovna se s hodnotou
-        # `post_window`.
-        # Zatim pouze predpokladam, ze jednotkou jsou metry.
-        assert self.post_window_unit == "m"
         first = self.sync_gps_odo[first_index]
         last = self.sync_gps_odo[last_index]
         if abs(last.tra - first.tra) > self.post_window:
@@ -588,7 +528,7 @@ class LeastSquaresLocalization(Node):
                 2. after the robot travels the distance given by `window`:
         """
         # Post-processed Trajectory
-        if self.post_processing:
+        if self.post_window is not None:
             self.compute_post_process_trajectory()
         # Real-time Trajectory
         len_trajectory = len(self.trajectory)
@@ -596,11 +536,6 @@ class LeastSquaresLocalization(Node):
             #first_index = 0
             len_sync_gps_odo = len(self.sync_gps_odo)
             last_index = len_sync_gps_odo - 1
-            # TODO Tady bude vyhledove rozliseni, v jakych jednotkach `window`
-            # je a podle toho se pak spocita "vzdalenost" a porovna se s hodnotou
-            # `window`.
-            # Zatim pouze predpokladam, ze jednotkou jsou metry.
-            assert self.window_unit == "m"
             first = self.sync_gps_odo[0]
             last = self.sync_gps_odo[last_index]
             if abs(last.tra - first.tra) > self.window:
@@ -625,35 +560,35 @@ class LeastSquaresLocalization(Node):
                                                                        or_o = first.odo,
                                                                        first_index = 0,
                                                                        period = len_sync_gps_odo)
-                if all(var is not None for var in [qua_est, sca_est, self.init_qua, self.init_sca]):
+                if all(var is not None for var in [qua_est, sca_est, self.initial_rotation, self.initial_scale]):
                     # Estimating pose3d at the start part of the trajectory
                     # -----------------------------------------------------
-                    # self.init_qua, self.init_sca ... initial angle and scale
+                    # self.initial_rotation, self.initial_scale ... initial angle and scale
                     # qua_est, sca_est ... angle and scale computed from the
                     #       GPS data obtained so far; the distance travelled is
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
                     travelled = abs(self.odo_parser.get_distance_travelled())
-                    if travelled > self.init_win:
+                    if travelled > self.initial_window:
                         weight = 1.0
                     else:
-                        weight = travelled / self.init_win
-                    qua = slerp(self.init_qua, qua_est, weight)
-                    sca = (1 - weight)*self.init_sca + weight*sca_est
+                        weight = travelled / self.initial_window
+                    qua = slerp(self.initial_rotation, qua_est, weight)
+                    sca = (1 - weight)*self.initial_scale + weight*sca_est
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, first.odo, first.gps)
                     pose3d_ori = quaternion.multiply(qua, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
                     # for debugging, to be removed
-                    pose3d_xyz_init = rotate_and_scale(self.init_qua, self.init_sca, last.odo, first.odo, first.gps)
-                    pose3d_ori_init = quaternion.multiply(self.init_qua, last.ori)
+                    pose3d_xyz_init = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, first.odo, first.gps)
+                    pose3d_ori_init = quaternion.multiply(self.initial_rotation, last.ori)
                     self.plot_init.append(pose3d_xyz_init)
                     pose3d_xyz_est = rotate_and_scale(qua_est, sca_est, last.odo, first.odo, first.gps)
                     pose3d_ori_est = quaternion.multiply(qua_est, last.ori)
                     self.plot_est.append(pose3d_xyz_est)
-                elif all(var is not None for var in [self.init_qua, self.init_sca]):
-                    pose3d_xyz = rotate_and_scale(self.init_qua, self.init_sca, last.odo, first.odo, first.gps)
-                    pose3d_ori = quaternion.multiply(self.init_qua, last.ori)
+                elif all(var is not None for var in [self.initial_rotation, self.initial_scale]):
+                    pose3d_xyz = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, first.odo, first.gps)
+                    pose3d_ori = quaternion.multiply(self.initial_rotation, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
                 elif all(var is not None for var in [qua_est, sca_est]):
                     pose3d_xyz = rotate_and_scale(qua_est, sca_est, last.odo, first.odo, first.gps)
@@ -661,11 +596,6 @@ class LeastSquaresLocalization(Node):
                     self.pose3d = [pose3d_xyz, pose3d_ori]
             self.window_first_index = 0
         else:
-            # TODO Tady bude vyhledove rozliseni, v jakych jednotkach `window`
-            # je a podle toho se pak spocita "vzdalenost" a porovna se s hodnotou
-            # `window`.
-            # Zatim pouze predpokladam, ze jednotkou jsou metry.
-            assert self.window_unit == "m"
             # moving the window
             len_sync_gps_odo = len(self.sync_gps_odo)
             last_index = len_sync_gps_odo - 1
@@ -701,7 +631,7 @@ class LeastSquaresLocalization(Node):
         # list of drawn trajectories
         draw_list = []
         # plot post-processed trajectory
-        if self.post_processing:
+        if self.post_window is not None:
             plot_post_trajectory = []
             for xyz, ori in self.post_trajectory:
                 plot_post_trajectory.append(xyz)
