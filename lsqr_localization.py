@@ -547,7 +547,7 @@ class LeastSquaresLocalization(Node):
                 self.compute_trajectory()
         pose3d = self.get_pose3d()
         if pose3d is not None:
-            # publish pose3d
+            self.publish('pose3d', pose3d)
             self.plot_pose3d.append(pose3d[0])
 
     def on_orientation(self, data):
