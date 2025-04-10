@@ -15,7 +15,7 @@
           "init": {"port": "/dev/ttyUSB0", "speed": 4800}
       },
       "localization": {
-	      "driver": "lsqr_loc:LSqrLoc",
+	      "driver": "lsqr_localization:LeastSquaresLocalization",
 	      "in": ["nmea_data (poznamka)"],
 	      "out": ["pose3d (poznamka)"],
 	      "init":{
