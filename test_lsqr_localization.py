@@ -500,9 +500,9 @@ class TestLeastSquaresLocalization(unittest.TestCase):
             ]
         for k in range(len(list_of_nmea)):
             timestamp = timedelta(seconds = k)
-            localization.on_odom([1000*k, 0, 0])
+            localization.on_odometry([1000*k, 0, 0])
             localization.on_orientation(quaternion.euler_to_quaternion(0, 0, 0))
-            localization.on_nmea_data(list_of_nmea[k])
+            localization.on_nmea(list_of_nmea[k])
             pose3d = localization.get_pose3d()
             if expected_pose3d[k] is None:
                 self.assertIsNone(pose3d)

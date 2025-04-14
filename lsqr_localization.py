@@ -495,7 +495,7 @@ class LeastSquaresLocalization(Node):
         self.plot_init = []
         self.plot_est = []
 
-    def on_nmea_data(self, data):
+    def on_nmea(self, data):
         """
             Process next data obtained from GPS.
 
@@ -523,7 +523,7 @@ class LeastSquaresLocalization(Node):
         if xyz is not None:
             self.last_sync_gps = xyz
 
-    def on_odom(self, data):
+    def on_odometry(self, data):
         """
             Process next data obtained from odometry.
 

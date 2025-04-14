@@ -107,7 +107,7 @@
               ["can.raw", "serial.raw"],
               ["imu_tcp.raw", "imu.raw"],
 
-              ["spider.pose2d", "localization.odom"],
+              ["spider.pose2d", "localization.odometry"],
               ["imu.orientation", "localization.orientation"],
 
               ["gps_tcp.raw", "gps.raw"],
