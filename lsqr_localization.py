@@ -751,8 +751,8 @@ class LeastSquaresLocalization(Node):
                 },
                 {
                     "trajectory": self.plot_init,
-                    "options": "y.",
-                    "label": "initial estimation by initial angle & scale",
+                    "options": "m.",
+                    "label": "estimation by initial angle & scale",
                 },
             ])
         draw_trajectories(draw_list)
