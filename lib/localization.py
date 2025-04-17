@@ -111,7 +111,8 @@ class Localization:
             distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
             self.max_dist_from_origin = max(self.max_dist_from_origin, distance_from_last_origin)
 
-            #reseting origin in case of returning to much back
+            #reseting origin in case of returning too much back
+            # too much here means 2 meters
             if self.max_dist_from_origin > distance_from_last_origin + 2:
                 self.max_dist_from_origin = 0
                 self.kf = KalmanFilterLocalization()
@@ -136,9 +137,9 @@ class Localization:
             for i in range(3):
                 shifted_tracker_xyz[i] = tracker_xyz[i] + self.diff_odo_gps[i]
             self.ase.update(xyz_from_gps, shifted_tracker_xyz)
-            p = xyz_from_gps
-            q = shifted_tracker_xyz
-            distance = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
+            #p = xyz_from_gps
+            #q = shifted_tracker_xyz
+            #distance = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
             #if distance < 1:
             #    print("Ase updating:", xyz_from_gps, shifted_tracker_xyz)
 
@@ -220,6 +221,7 @@ class Localization:
                 distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
                 #print("distance", distance_from_last_origin)
                 # origin is reset only if the new one is far from the old one
+                # far means more than one meter
                 if distance_from_last_origin > 1:
                     #print("Setting off and reseting origin to", self.average_gps_xyz[:2])
                     self.ase.set_origin(self.average_gps_xyz[:2])
