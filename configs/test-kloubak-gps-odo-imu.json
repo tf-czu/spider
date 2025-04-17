@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "localization": {
+	      "driver": "gps_loc:GpsOdoLocalization",
+	      "in": ["nmea_data", "odom", "orientation"],
+	      "out": ["pose3d"],
+	      "init":{
+            "gps_err": [2, 2, 6],
+            "imu_err": [2, 2, 6]
+          }
+      }
+    },
+
+    "links": [
+              ["kloubak.pose2d", "localization.odom"],
+              ["imu.orientation", "localization.orientation"],
+              ["gps.nmea_data", "localization.nmea_data"]
+    ]
+  }
+}
