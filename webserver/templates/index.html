@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Cameras</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    .camera-container {
+      display: inline-block;
+      margin: 20px;
+    }
+    img {
+      border: 2px solid black;
+      width: 320px;
+      height: 240px;
+      display: block;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+<body>
+  {% for i in range(3) %}
+  <div class="camera-container">
+    <label for="select{{ i }}">Camera {{ i+1 }}:</label><br>
+    <select id="select{{ i }}" onchange="updateStream({{ i }})">
+      <option value="">-- camera option --</option>
+      {% for cam in cameras %}
+        <option value="{{ cam }}" {% if cam == default_cams[i] %}selected{% endif %}>{{ cam }}</option>
+      {% endfor %}
+    </select>
+    <img id="stream{{ i }}" src="{% if default_cams[i] %}/video_feed/{{ default_cams[i] }}{% endif %}" alt="Video stream">
+  </div>
+  {% endfor %}
+
+  <script>
+    function updateStream(index) {
+      const select = document.getElementById(`select${index}`);
+      const cam_id = select.value;
+      const img = document.getElementById(`stream${index}`);
+
+      if (cam_id) {
+        img.src = `/video_feed/${cam_id}`;
+      } else {
+        img.src = "";
+      }
+    }
+  </script>
+<h2>Robot trajectory</h2>
+<canvas id="poseCanvas" width="600" height="400" style="border:1px solid black;"></canvas>
+<script>
+let canvas = document.getElementById("poseCanvas");
+let ctx = canvas.getContext("2d");
+
+let scale = 20;
+let offsetX = canvas.width / 2;
+let offsetY = canvas.height / 2;
+let isDragging = false;
+let dragStart = {x: 0, y: 0};
+
+// Zoom via mouse wheel
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const zoomIntensity = 0.1;
+  const mouseX = e.offsetX;
+  const mouseY = e.offsetY;
+
+  const wheel = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
+  scale *= wheel;
+
+  // Adjust the offset so that the zoom is relative to the cursor position
+  offsetX = mouseX - (mouseX - offsetX) * wheel;
+  offsetY = mouseY - (mouseY - offsetY) * wheel;
+
+  drawPoints();
+});
+
+// Move the canvas (pan)
+canvas.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  dragStart = {x: e.offsetX - offsetX, y: e.offsetY - offsetY};
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  if (isDragging) {
+    offsetX = e.offsetX - dragStart.x;
+    offsetY = e.offsetY - dragStart.y;
+    drawPoints();
+  }
+});
+
+canvas.addEventListener("mouseup", () => isDragging = false);
+canvas.addEventListener("mouseleave", () => isDragging = false);
+
+let points = [];
+
+function drawPoints() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 1) draw points with transformation
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scale, scale);
+
+  for (let [x, y] of points) {
+    ctx.beginPath();
+    ctx.arc(x, y, 3 / scale, 0, 2 * Math.PI);  // 3 px nezávisle na zoomu
+    ctx.fillStyle = "red";
+    ctx.fill();
+  }
+
+  ctx.restore();
+
+  // 2) Draw scale – 1 metr
+  const margin = 10;
+  const length = scale; // length in pixels (1m)
+
+  ctx.beginPath();
+  ctx.moveTo(canvas.width - margin - length, canvas.height - margin);
+  ctx.lineTo(canvas.width - margin, canvas.height - margin);
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // add text:  "1 m"
+  ctx.font = "12px sans-serif";
+  ctx.fillStyle = "black";
+  ctx.textAlign = "right";
+  ctx.fillText("1 m", canvas.width - margin - 5, canvas.height - margin - 5);
+}
+
+// Periodically upload new points
+function updatePoints() {
+  fetch("/points")
+    .then(response => response.json())
+    .then(data => {
+      points = data;
+      drawPoints();
+    });
+}
+
+setInterval(updatePoints, 1000);
+</script>
+</body>
+</html>
