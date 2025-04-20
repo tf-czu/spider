@@ -47,6 +47,9 @@
   </script>
 <h2>Robot trajectory</h2>
 <canvas id="poseCanvas" width="600" height="400" style="border:1px solid black;"></canvas>
+  <div>
+    <button onclick="clearPoints()">Clear points</button>
+  </div>
 <script>
 let canvas = document.getElementById("poseCanvas");
 let ctx = canvas.getContext("2d");
@@ -129,16 +132,30 @@ function drawPoints() {
 }
 
 // Periodically upload new points
+let lastPointsJSON = "";
 function updatePoints() {
   fetch("/points")
     .then(response => response.json())
     .then(data => {
-      points = data;
-      drawPoints();
+      const json = JSON.stringify(data);
+      if (json !== lastPointsJSON) {
+        points = data;
+        drawPoints();
+        lastPointsJSON = json;
+      }
     });
 }
-
 setInterval(updatePoints, 1000);
+
+function clearPoints() {
+  fetch("/clear_points", { method: "POST" })
+    .then(response => {
+      if (response.ok) {
+        points = [];
+        drawPoints();
+      }
+    });
+}
 </script>
 </body>
 </html>

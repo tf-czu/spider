@@ -83,6 +83,12 @@ def get_points():
     with frame_lock:
         return jsonify(connection.points)
 
+@app.route('/clear_points', methods=['POST'])
+def clear_points():
+    with frame_lock:
+        connection.points = []
+    return '', 204
+
 if __name__ == '__main__':
     connection = Zmq()
     t = threading.Thread(target=connection.pull_msg, daemon=True)
