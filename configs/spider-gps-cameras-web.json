@@ -81,7 +81,7 @@
             "fps": 15,
             "subsample": 5,
             "is_color": true,
-            "cam_ip": "192.168.1.62",
+            "cam_id": "192.168.1.62",
             "color_resolution": "THE_720_P",
             "color_orientation": "NORMAL"
           }
@@ -92,7 +92,7 @@
             "fps": 15,
             "subsample": 5,
             "is_color": true,
-            "cam_ip": "192.168.1.63",
+            "cam_id": "192.168.1.63",
             "color_resolution": "THE_720_P"
           }
       },
@@ -102,7 +102,7 @@
             "fps": 15,
             "subsample": 5,
             "is_color": true,
-            "cam_ip": "192.168.1.64",
+            "cam_id": "192.168.1.64",
             "color_resolution": "THE_720_P"
           }
       },
