@@ -78,28 +78,32 @@
       "camera_front": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
           "init": {
-            "fps": 5,
+            "fps": 15,
+            "subsample": 5,
             "is_color": true,
             "cam_ip": "192.168.1.62",
-            "color_resolution": "THE_1080_P"
+            "color_resolution": "THE_720_P",
+            "color_orientation": "NORMAL"
           }
       },
       "camera_right": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
           "init": {
-            "fps": 5,
+            "fps": 15,
+            "subsample": 5,
             "is_color": true,
             "cam_ip": "192.168.1.63",
-            "color_resolution": "THE_1080_P"
+            "color_resolution": "THE_720_P"
           }
       },
       "camera_left": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
           "init": {
-            "fps": 5,
+            "fps": 15,
+            "subsample": 5,
             "is_color": true,
             "cam_ip": "192.168.1.64",
-            "color_resolution": "THE_1080_P"
+            "color_resolution": "THE_720_P"
           }
       }
     },
