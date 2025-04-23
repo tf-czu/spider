@@ -10,6 +10,7 @@ from osgar.lib.serialize import serialize, deserialize
 app = Flask(__name__)
 frame_lock = threading.Lock()
 
+
 class Zmq:
     def __init__(self):
         self.latest_frames = {}  # {"cam1": <jpeg>, "cam2": <jpeg>, ...}
@@ -89,8 +90,11 @@ def clear_points():
         connection.points = []
     return '', 204
 
+
+connection = Zmq()
+t = threading.Thread(target=connection.pull_msg, daemon=True)
+t.start()
+
+
 if __name__ == '__main__':
-    connection = Zmq()
-    t = threading.Thread(target=connection.pull_msg, daemon=True)
-    t.start()
     app.run(debug=True, use_reloader=False)
