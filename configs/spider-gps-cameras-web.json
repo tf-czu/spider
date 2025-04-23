@@ -105,7 +105,16 @@
             "cam_id": "192.168.1.64",
             "color_resolution": "THE_720_P"
           }
+      },
+
+      "to_server": {
+        "driver": "osgar.drivers.push:Push",
+        "init": {
+          "bind": false,
+          "endpoint": "tcp://127.0.0.1:5560"
+        }
       }
+
     },
     "links": [["spider.can", "can.can"],
               ["can.can", "spider.can"],
@@ -119,7 +128,11 @@
               ["gps_tcp.raw", "gps.raw"],
               ["gps_tcp.raw", "rtk_filter.nmea"],
               ["rtk_filter.filtered", "rtk_modem.raw"],
-              ["rtk_modem.raw", "gps_tcp.raw"]
+              ["rtk_modem.raw", "gps_tcp.raw"],
+
+              ["camera_front.color", "to_server.cam2_front"],
+              ["camera_left.color", "to_server.cam1_left"],
+              ["camera_right.color", "to_server.cam3_right"]
     ]
   }
 }
