@@ -346,7 +346,7 @@ class OdometryParser:
         self.xyz = [0.0, 0.0, 0.0]
         self.distance_travelled = 0.0
 
-    def parse_odometry(self, data): # pose2d format required
+    def parse_pose2d(self, data): # pose2d format required
         """
             Process next odometry data.
 
@@ -495,6 +495,10 @@ class LeastSquaresLocalization(Node):
         self.plot_init = []
         self.plot_est = []
 
+        self.rtk_nmea_parser = NMEAParser()
+        self.plot_rtk_nmea = []
+
+
     def on_nmea(self, data):
         """
             Process next data obtained from GPS.
@@ -523,7 +527,35 @@ class LeastSquaresLocalization(Node):
         if xyz is not None:
             self.last_sync_gps = xyz
 
-    def on_odometry(self, data):
+    def on_rtk_nmea(self, data):
+        """
+            Process next data obtained from GPS.
+
+            Args:
+                data (dict): GPS data according to NMEA format;
+                    contains keys:
+                        * `"identifier"`
+                        * `"lon"`
+                        * `"lon_dir"`
+                        * `"lat"`
+                        * `"lat_dir"`
+                        * `"utc_time"`
+                        * `"quality"`
+                        * `"sats"`
+                        * `"hdop"`
+                        * `"alt"`
+                        * `"a_units"`
+                        * `"undulation"`
+                        * `"u_units"`
+                        * `"age"`
+                        * `"stn_id"`
+        """
+        self.rtk_nmea_parser.parse(data)
+        xyz = self.rtk_nmea_parser.get_xyz()
+        if xyz is not None:
+            self.plot_rtk_nmea.append(xyz)
+
+    def on_pose2d(self, data):
         """
             Process next data obtained from odometry.
 
@@ -534,7 +566,7 @@ class LeastSquaresLocalization(Node):
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... ???
         """
-        distance_3d = self.odo_parser.parse_odometry(data)
+        distance_3d = self.odo_parser.parse_pose2d(data)
         xyz = self.odo_parser.get_xyz()
         if xyz is not None:
             if self.last_sync_gps is not None:
@@ -735,8 +767,13 @@ class LeastSquaresLocalization(Node):
                 })
         draw_list.extend([
                 {
+                    "trajectory": self.plot_rtk_nmea,
+                    "options": "rx",
+                    "label": "rtk",
+                },
+                {
                     "trajectory": plot_gps,
-                    "options": "c.",
+                    "options": "c+",
                     "label": "GPS",
                 },
                 {

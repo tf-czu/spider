@@ -57,9 +57,11 @@
       }
     },
     "links": [
-              ["spider.pose2d", "localization.odometry"],
+              ["spider.pose2d", "localization.pose2d"],
+              ["spider.encoders", "localization.encoders"],
               ["imu.orientation", "localization.orientation"],
-              ["gps.nmea_data", "localization.nmea"]
+              ["gps.nmea_data", "localization.nmea"],
+              ["rtk_gps.nmea_data", "localization.rtk_nmea"]
     ]
   }
 }
