@@ -347,7 +347,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
         odo_parser = loc.OdometryParser()
         for k in range(10):
             # pohybuje se ve smeru osy x
-            odo_parser.parse_odometry([1000*k, 0, 0])
+            odo_parser.parse_pose2d([1000*k, 0, 0])
             # nulovy odklon od osy x (prvni euleruv uhel)
             odo_parser.parse_orientation(quaternion.euler_to_quaternion(0, 0, 0))
             raw = odo_parser.get_raw_odometry()
@@ -370,7 +370,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
         odo_parser = loc.OdometryParser()
         for k in range(10):
             # pohybuje se po primce, ktera svira uhel 45 stupnu s osou x
-            odo_parser.parse_odometry([1000*k, 1000*k, 0])
+            odo_parser.parse_pose2d([1000*k, 1000*k, 0])
             # prvni euleruv uhel je 45 stupnu
             odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/4, 0, 0))
             raw = odo_parser.get_raw_odometry()
@@ -392,7 +392,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
         odo_parser = loc.OdometryParser()
         for k in range(10):
             # pohybuje se ve smeru osy y
-            odo_parser.parse_odometry([0, 1000*k, 0])
+            odo_parser.parse_pose2d([0, 1000*k, 0])
             # prvni euleruv uhel je 90 stupnu
             odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/2, 0, 0))
             raw = odo_parser.get_raw_odometry()
@@ -414,7 +414,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
         odo_parser = loc.OdometryParser()
         for k in range(10):
             # pohybuje se po primce, ktera svira uhel 30 stupnu s osou x
-            odo_parser.parse_odometry([math.sqrt(3)*1000*k, 1000*k, 0])
+            odo_parser.parse_pose2d([math.sqrt(3)*1000*k, 1000*k, 0])
             # prvni euleruv uhel je 30 stupnu
             odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/6, 0, 0))
             raw = odo_parser.get_raw_odometry()
@@ -436,7 +436,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
         odo_parser = loc.OdometryParser()
         for k in range(10):
             # pohybuje se po primce, ktera svira uhel 60 stupnu s osou x
-            odo_parser.parse_odometry([1000*k, math.sqrt(3)*1000*k, 0])
+            odo_parser.parse_pose2d([1000*k, math.sqrt(3)*1000*k, 0])
             # prvni euleruv uhel je 60 stupnu
             odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/3, 0, 0))
             raw = odo_parser.get_raw_odometry()
@@ -500,7 +500,7 @@ class TestLeastSquaresLocalization(unittest.TestCase):
             ]
         for k in range(len(list_of_nmea)):
             timestamp = timedelta(seconds = k)
-            localization.on_odometry([1000*k, 0, 0])
+            localization.on_pose2d([1000*k, 0, 0])
             localization.on_orientation(quaternion.euler_to_quaternion(0, 0, 0))
             localization.on_nmea(list_of_nmea[k])
             pose3d = localization.get_pose3d()
