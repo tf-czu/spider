@@ -587,6 +587,9 @@ class LeastSquaresLocalization(Node):
             self.publish('pose3d', pose3d)
             self.plot_pose3d.append(pose3d[0])
 
+    def on_encoders(self, data):
+        pass
+
     def on_orientation(self, data):
         """
             Process next data obtained from IMU.
