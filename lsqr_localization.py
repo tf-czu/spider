@@ -478,7 +478,7 @@ class LeastSquaresLocalization(Node):
                 and `initial_rotation`
 
             * `nmea_parser` (NMEAParser): parses input GPS data
-            * `odo_parser` (OdometryParser): parses input odometry and IMU data
+            * `odo_parser_pose2d` (OdometryParser): parses input odometry and IMU data
     """
 
     def __init__(self, config, bus):
@@ -524,13 +524,16 @@ class LeastSquaresLocalization(Node):
         self.last_sync_ori = None
         # data parsers
         self.nmea_parser = NMEAParser()
-        self.odo_parser = OdometryParser()
+        self.odo_parser_pose2d = OdometryParser()
+        self.odo_parser_encoders = OdometryParser()
         # output
         self.pose3d = None
         # for debugging
         self.plot_pose3d = []
         self.plot_init = []
         self.plot_est = []
+
+        self.plot_xyz_by_encoders = []
 
     def on_nmea(self, data):
         """
@@ -571,15 +574,15 @@ class LeastSquaresLocalization(Node):
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... ???
         """
-        distance_3d = self.odo_parser.parse_pose2d(data)
-        xyz = self.odo_parser.get_xyz()
+        distance_3d = self.odo_parser_pose2d.parse_pose2d(data)
+        xyz = self.odo_parser_pose2d.get_xyz()
         if xyz is not None:
             if self.last_sync_gps is not None:
                 s = SyncGpsOdo(time = self.time,
                                gps = self.last_sync_gps,
                                odo = xyz,
                                ori = self.last_sync_ori,
-                               tra = self.odo_parser.get_distance_travelled())
+                               tra = self.odo_parser_pose2d.get_distance_travelled())
                 self.sync_gps_odo.append(s)
                 self.compute_trajectory()
         pose3d = self.get_pose3d()
@@ -588,7 +591,24 @@ class LeastSquaresLocalization(Node):
             self.plot_pose3d.append(pose3d[0])
 
     def on_encoders(self, data):
-        pass
+        distance_3d = self.odo_parser_encoders.parse_encoders(data)
+        xyz = self.odo_parser_encoders.get_xyz()
+        #print("xyz:", xyz)
+        if xyz is not None:
+            if self.last_sync_gps is not None:
+                s = SyncGpsOdo(time = self.time,
+                               gps = self.last_sync_gps,
+                               odo = xyz,
+                               ori = self.last_sync_ori,
+                               tra = self.odo_parser_encoders.get_distance_travelled())
+                #self.sync_gps_odo.append(s)
+                #self.compute_trajectory()
+            self.plot_xyz_by_encoders.append(xyz)
+        #pose3d = self.get_pose3d()
+        #if pose3d is not None:
+        #    self.publish('pose3d', pose3d)
+        #    self.plot_pose3d.append(pose3d[0])
+
 
     def on_orientation(self, data):
         """
@@ -598,7 +618,8 @@ class LeastSquaresLocalization(Node):
                 data (list of float): list of four values representing a
                     quaternion that represents the orientation of the robot
         """
-        self.odo_parser.parse_orientation(data)
+        self.odo_parser_pose2d.parse_orientation(data)
+        self.odo_parser_encoders.parse_orientation(data)
         self.last_sync_ori = data
 
     def get_pose3d(self):
@@ -702,7 +723,7 @@ class LeastSquaresLocalization(Node):
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
-                    travelled = abs(self.odo_parser.get_distance_travelled())
+                    travelled = abs(self.odo_parser_pose2d.get_distance_travelled())
                     if travelled > self.initial_window:
                         weight = 1.0
                     else:
@@ -755,6 +776,11 @@ class LeastSquaresLocalization(Node):
             self.trajectory.append(self.pose3d)
 
     def draw(self):
+
+        #print("len:", len(self.plot_xyz_by_encoders))
+        #for xyz in self.plot_xyz_by_encoders:
+        #    print(xyz)
+
         # plot GPS and odometry
         plot_gps = []
         plot_odo = []
@@ -793,6 +819,11 @@ class LeastSquaresLocalization(Node):
                     "trajectory": self.plot_init,
                     "options": "m.",
                     "label": "estimation by initial angle & scale",
+                },
+                {
+                    "trajectory": self.plot_xyz_by_encoders,
+                    "options": "r.",
+                    "label": "xyz_by_encoders",
                 },
             ])
         draw_trajectories(draw_list)
