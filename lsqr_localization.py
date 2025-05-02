@@ -345,6 +345,7 @@ class OdometryParser:
         self.orientation = None
         self.xyz = [0.0, 0.0, 0.0]
         self.distance_travelled = 0.0
+        self.odometry_from = None
 
     def parse_pose2d(self, data): # pose2d format required
         """
@@ -356,7 +357,14 @@ class OdometryParser:
                     * `x` ... x-coordinate in [mm] originating from odometry
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... ???
+
+            Returns (list of float): 3D vector representing the distance
+                travelled relative from the last measurement
         """
+        if self.odometry_from is None:
+            self.odometry_from = "pose2d"
+        assert self.odometry_from == "pose2d"
+        #
         current_raw_odo = [data[0] / 1000.0, data[1] / 1000.0]
         heading = math.radians(data[2] / 100.0)
         if self.raw_odo is None:
@@ -369,6 +377,34 @@ class OdometryParser:
                 distance = -distance
             self.distance_travelled += distance
         self.raw_odo = current_raw_odo
+        # compute xyz from odometry and IMU
+        if self.orientation != None:
+            distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.orientation)
+            for i in range(len(self.xyz)):
+                self.xyz[i] += distance_3d[i]
+            return distance_3d
+        else:
+            return None
+
+    def parse_encoders(self, data):
+        """
+            Process next odometry data.
+
+            Args:
+                data (list of int): list of two values representing the
+                    distance travelled [no specified unit] on the left and right
+                    wheel of the robot;
+                    the distance is relative from the last measurement
+
+            Returns (list of float): 3D vector representing the distance
+                travelled relative from the last measurement
+        """
+        if self.odometry_from is None:
+            self.odometry_from = "encoders"
+        assert self.odometry_from == "encoders"
+        #
+        distance = (data[0] + data[1]) / 2
+        self.distance_travelled += distance
         # compute xyz from odometry and IMU
         if self.orientation != None:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.orientation)

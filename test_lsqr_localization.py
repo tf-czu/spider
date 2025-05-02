@@ -614,6 +614,103 @@ class TestLeastSquaresLocalization(unittest.TestCase):
             for i in range(4):
                 self.assertAlmostEqual(result[i], expected[i], 3)
 
+    def test_OdometryParser_encoders_0deg(self):
+        # simulace rovne jizdy ve smeru osy x
+        odo_parser = loc.OdometryParser()
+        for k in range(10):
+            # nulovy odklon od osy x (prvni euleruv uhel)
+            odo_parser.parse_orientation(quaternion.euler_to_quaternion(0, 0, 0))
+            #odo_parser.parse_orientation([0, 0, 0, 1])
+            distance_3d = odo_parser.parse_encoders([1, 1])
+            self.assertIsInstance(distance_3d, list)
+            self.assertEqual(len(distance_3d), 3)
+            self.assertAlmostEqual(distance_3d[0], 1)
+            self.assertAlmostEqual(distance_3d[1], 0)
+            self.assertAlmostEqual(distance_3d[2], 0)
+            xyz = odo_parser.get_xyz()
+            self.assertIsInstance(xyz, list)
+            self.assertEqual(len(xyz), 3)
+            self.assertAlmostEqual(xyz[0], k + 1)
+            self.assertAlmostEqual(xyz[1], 0)
+            self.assertAlmostEqual(xyz[2], 0)
+
+    def test_OdometryParser_encoders_0deg_different_speeds(self):
+        # simulace rovne jizdy ve smeru osy x
+        odo_parser = loc.OdometryParser()
+        for k in range(10):
+            # nulovy odklon od osy x (prvni euleruv uhel)
+            odo_parser.parse_orientation(quaternion.euler_to_quaternion(0, 0, 0))
+            #odo_parser.parse_orientation([0, 0, 0, 1])
+            distance_3d = odo_parser.parse_encoders([0.5, 1.5])
+            self.assertIsInstance(distance_3d, list)
+            self.assertEqual(len(distance_3d), 3)
+            self.assertAlmostEqual(distance_3d[0], 1)
+            self.assertAlmostEqual(distance_3d[1], 0)
+            self.assertAlmostEqual(distance_3d[2], 0)
+            xyz = odo_parser.get_xyz()
+            self.assertIsInstance(xyz, list)
+            self.assertEqual(len(xyz), 3)
+            self.assertAlmostEqual(xyz[0], k + 1)
+            self.assertAlmostEqual(xyz[1], 0)
+            self.assertAlmostEqual(xyz[2], 0)
+
+    def test_OdometryParser_encoders_45deg(self):
+        # simulace rovne jizdy ve smeru primky, ktera svira uhel 45 stupnu s osou x
+        odo_parser = loc.OdometryParser()
+        one_over_sqrt_2 = 1 / math.sqrt(2)
+        for k in range(10):
+            # nulovy odklon od osy x (prvni euleruv uhel)
+            odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/4, 0, 0))
+            distance_3d = odo_parser.parse_encoders([1, 1])
+            self.assertIsInstance(distance_3d, list)
+            self.assertEqual(len(distance_3d), 3)
+            self.assertAlmostEqual(distance_3d[0], one_over_sqrt_2)
+            self.assertAlmostEqual(distance_3d[1], one_over_sqrt_2)
+            self.assertAlmostEqual(distance_3d[2], 0)
+            xyz = odo_parser.get_xyz()
+            self.assertIsInstance(xyz, list)
+            self.assertEqual(len(xyz), 3)
+            self.assertAlmostEqual(xyz[0], (k + 1)*one_over_sqrt_2)
+            self.assertAlmostEqual(xyz[1], (k + 1)*one_over_sqrt_2)
+            self.assertAlmostEqual(xyz[2], 0)
+
+    def test_OdometryParser_encoders_90deg(self):
+        # simulace rovne jizdy ve smeru osy y
+        odo_parser = loc.OdometryParser()
+        for k in range(10):
+            # nulovy odklon od osy x (prvni euleruv uhel)
+            odo_parser.parse_orientation(quaternion.euler_to_quaternion(math.pi/2, 0, 0))
+            distance_3d = odo_parser.parse_encoders([1, 1])
+            self.assertIsInstance(distance_3d, list)
+            self.assertEqual(len(distance_3d), 3)
+            self.assertAlmostEqual(distance_3d[0], 0)
+            self.assertAlmostEqual(distance_3d[1], 1)
+            self.assertAlmostEqual(distance_3d[2], 0)
+            xyz = odo_parser.get_xyz()
+            self.assertIsInstance(xyz, list)
+            self.assertEqual(len(xyz), 3)
+            self.assertAlmostEqual(xyz[0], 0)
+            self.assertAlmostEqual(xyz[1], k + 1)
+            self.assertAlmostEqual(xyz[2], 0)
+
+    def test_OdometryParser_pose2d_vs_encoders_collision(self):
+        # pokud jsou u OdometryParser volany stridave obe metody `parse_pose2d`
+        # i `parse_encoders`, ma byt vyvlona vyjimka
+        odo_parser = loc.OdometryParser()
+        odo_parser.parse_orientation(quaternion.euler_to_quaternion(0, 0, 0))
+        odo_parser.parse_pose2d([1, 0, 0])
+        with self.assertRaises(AssertionError):
+            odo_parser.parse_encoders([1, 1])
+
+    def test_OdometryParser_encoders_vs_pose2d_collision(self):
+        # pokud jsou u OdometryParser volany stridave obe metody `parse_pose2d`
+        # i `parse_encoders`, ma byt vyvlona vyjimka
+        odo_parser = loc.OdometryParser()
+        odo_parser.parse_orientation(quaternion.euler_to_quaternion(0, 0, 0))
+        odo_parser.parse_encoders([1, 1])
+        with self.assertRaises(AssertionError):
+            odo_parser.parse_pose2d([1, 0, 0])
+
 #    def test_get_pose3d(self):
 #        #TODO
 #        pass
