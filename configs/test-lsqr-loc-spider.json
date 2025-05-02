@@ -60,8 +60,7 @@
               ["spider.pose2d", "localization.pose2d"],
               ["spider.encoders", "localization.encoders"],
               ["imu.orientation", "localization.orientation"],
-              ["gps.nmea_data", "localization.nmea"],
-              ["rtk_gps.nmea_data", "localization.rtk_nmea"]
+              ["gps.nmea_data", "localization.nmea"]
     ]
   }
 }

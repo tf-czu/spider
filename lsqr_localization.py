@@ -102,6 +102,7 @@ def slerp(A, B, t):
 
         Returns (list): interpolated quaternion
     """
+    return quaternion.slerp(A, B, t)
     dotAB = sum(A[i]*B[i] for i in range(4)) # dot product
     # if the dot product is negative, negate one quaternion to get the shortest
     # path
@@ -531,10 +532,6 @@ class LeastSquaresLocalization(Node):
         self.plot_init = []
         self.plot_est = []
 
-        self.rtk_nmea_parser = NMEAParser()
-        self.plot_rtk_nmea = []
-
-
     def on_nmea(self, data):
         """
             Process next data obtained from GPS.
@@ -562,34 +559,6 @@ class LeastSquaresLocalization(Node):
         xyz = self.nmea_parser.get_xyz()
         if xyz is not None:
             self.last_sync_gps = xyz
-
-    def on_rtk_nmea(self, data):
-        """
-            Process next data obtained from GPS.
-
-            Args:
-                data (dict): GPS data according to NMEA format;
-                    contains keys:
-                        * `"identifier"`
-                        * `"lon"`
-                        * `"lon_dir"`
-                        * `"lat"`
-                        * `"lat_dir"`
-                        * `"utc_time"`
-                        * `"quality"`
-                        * `"sats"`
-                        * `"hdop"`
-                        * `"alt"`
-                        * `"a_units"`
-                        * `"undulation"`
-                        * `"u_units"`
-                        * `"age"`
-                        * `"stn_id"`
-        """
-        self.rtk_nmea_parser.parse(data)
-        xyz = self.rtk_nmea_parser.get_xyz()
-        if xyz is not None:
-            self.plot_rtk_nmea.append(xyz)
 
     def on_pose2d(self, data):
         """
@@ -802,11 +771,6 @@ class LeastSquaresLocalization(Node):
                     "label": "post-processing",
                 })
         draw_list.extend([
-                {
-                    "trajectory": self.plot_rtk_nmea,
-                    "options": "rx",
-                    "label": "rtk",
-                },
                 {
                     "trajectory": plot_gps,
                     "options": "c+",
