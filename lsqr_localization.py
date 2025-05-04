@@ -44,8 +44,6 @@
 
         * `SyncGpsOdo`: named tuple representing one item in the list of
             synchronized GPS and odometry positions
-        * `slerp()`: interpolates two quaternions utilizing the Spherical
-            Linear intERPolation (SLERP)
         * `draw_trajectories()`: draws a plot of several trajectories using the
             matplotlib module
         * `compute_rotation_and_scale()`: utilizing the least squares method,
@@ -78,62 +76,6 @@ from lib.trackers import NMEATracker, OdometryTracker
 #   * odo (numpy.array): array of 3 (or 2) values representing a position
 #   * tra (float): distance travelled
 SyncGpsOdo = namedtuple("SyncGpsOdo", "time gps odo ori tra")
-
-def slerp(A, B, t):
-    """
-        Interpolates two quaternions utilizing the Spherical Linear
-            intERPolation (SLERP).
-
-        The input quaternions are given as list of four float values.
-        The order of their coordinates is not important, hence, a quaternion
-            "a + bi + cj + dk" can be passed as, e.g., `[a, b, c, d]`
-            or `[b, c, d, a]`.
-        The coordinates of the result will respect the same order.
-
-        Args:
-            A (list of float): quaternion as a list of four values
-            B (list of float): quaternion as a list of four values
-            t (float): a value between `0.0` and `1.0`
-
-                * if `t == 0.0` then the function returns `A`
-                * if `t == 1.0` then the function returns `B`
-                * if `0.0 < t < 1.0` then the corresponding value on the
-                    shortest path between `A` and `B` is returned
-
-        Returns (list): interpolated quaternion
-    """
-    return quaternion.slerp(A, B, t)
-    dotAB = sum(A[i]*B[i] for i in range(4)) # dot product
-    # if the dot product is negative, negate one quaternion to get the shortest
-    # path
-    if dotAB < 0.0:
-        for i in range(4):
-            B[i] = -B[i]
-        dotAB = -dotAB
-    if dotAB > 0.9995:
-        # -----------------------------------------------------
-        # linear interpolation (actually, a convex combination)
-        # -----------------------------------------------------
-        # (if the dot product is close to 1, the quaternions are very close)
-        result = 4 * [0]
-        # normalize the resulting quaternion
-        sum_sqr = 0
-        for i in range(4):
-            result[i] = (1 - t)*A[i] + t*B[i] # convex combination
-            sum_sqr += result[i]*result[i]
-        norm_of_result = math.sqrt(sum_sqr)
-        for i in range(4):
-            result[i] /= norm_of_result 
-        return result
-    else:
-        # --------------------------------------
-        # Spherical Linear intERPolation (SLERP)
-        # --------------------------------------
-        alpha = math.acos(dotAB) # the angle between the quaternions
-        beta = alpha * t         # the angle of the result
-        coef_B = math.sin(beta) / math.sin(alpha)
-        coef_A = math.cos(beta) - dotAB*coef_B
-        return [coef_A*A[i] + coef_B*B[i] for i in range(4)]
 
 def draw_trajectories(trajectories):
     """
@@ -570,7 +512,7 @@ class LeastSquaresLocalization(Node):
                         weight = 1.0
                     else:
                         weight = travelled / self.initial_window
-                    qua = slerp(self.initial_rotation, qua_est, weight)
+                    qua = quaternion.slerp(self.initial_rotation, qua_est, weight)
                     sca = (1 - weight)*self.initial_scale + weight*sca_est
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, first.odo, first.gps)
                     pose3d_ori = quaternion.multiply(qua, last.ori)
