@@ -325,7 +325,7 @@ class LocalizationByLeastSquares:
                                ori = copy.copy(self.last_sync_ori),
                                tra = self.distance_travelled)
                 self.sync_gps_odo.append(s)
-                # TODO self.compute_trajectory()
+                #self.compute_trajectory()
         pose3d = self.get_pose3d()
         if pose3d is not None:
             #self.publish('pose3d', pose3d)
@@ -410,8 +410,8 @@ class LocalizationByLeastSquares:
                 2. after the robot travels the distance given by `initial_window`:
         """
         # Post-processed Trajectory
-        if self.post_window is not None:
-            self.compute_post_process_trajectory()
+        #if self.post_window is not None:
+        #    self.compute_post_process_trajectory()
         # Real-time Trajectory
         len_trajectory = len(self.trajectory)
         if len_trajectory == 0:
@@ -451,8 +451,10 @@ class LocalizationByLeastSquares:
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
-                    travelled = abs(self.odo_tracker_pose2d.get_distance_travelled())
-                    if travelled > self.initial_window:
+                    travelled = abs(self.get_distance_travelled())
+                    if travelled is None:
+                        weight = 0.0
+                    elif travelled > self.initial_window:
                         weight = 1.0
                     else:
                         weight = travelled / self.initial_window
