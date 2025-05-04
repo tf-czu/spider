@@ -312,21 +312,18 @@ class NMEAParser:
                         * `"age"`
                         * `"stn_id"`
         """
-        lon = data["lon"]
-        lat = data["lat"]
         assert data["lon_dir"] == "E"
         assert data["lat_dir"] == "N"
+        lon = data["lon"]
+        lat = data["lat"]
         alt = data["alt"]
-        if self.alt_0 is not None:
-            z = alt - self.alt_0
-        else:
-            self.alt_0 = alt
-            z = 0
         if self.converter:
             x, y = self.converter.geo2planar((lon, lat))
-            self.xyz = [x, y, 0.0]
+            z = alt - self.alt_0
+            self.xyz = [x, y, z]
         else:
             self.converter = GPSConvertor((lon, lat))
+            self.alt_0 = alt
             self.xyz = [0.0, 0.0, 0.0]
 
     def get_xyz(self):
@@ -669,17 +666,18 @@ class LeastSquaresLocalization(Node):
                 self.post_trajectory.append([new_xyz, new_ori])
 
     def compute_trajectory(self):
+        # TODO complete documentation
         """
             Computes in real-time the trajectory of the robot and saves its
                 current position to `pose3d` attribute.
 
             The computation runs in two phases:
 
-                1. before the robot travels the distance given by `window`:
+                1. before the robot travels the distance given by `initial_window`:
 
                     - this is characterized by `len(self.trajectory) == 0`
 
-                2. after the robot travels the distance given by `window`:
+                2. after the robot travels the distance given by `initial_window`:
         """
         # Post-processed Trajectory
         if self.post_window is not None:
