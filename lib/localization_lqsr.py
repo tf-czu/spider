@@ -325,7 +325,7 @@ class LocalizationByLeastSquares:
                                ori = copy.copy(self.last_sync_ori),
                                tra = self.distance_travelled)
                 self.sync_gps_odo.append(s)
-                #self.compute_trajectory()
+                self.compute_trajectory()
         pose3d = self.get_pose3d()
         if pose3d is not None:
             #self.publish('pose3d', pose3d)
@@ -409,6 +409,16 @@ class LocalizationByLeastSquares:
 
                 2. after the robot travels the distance given by `initial_window`:
         """
+
+#def compute_rotation_and_scale(sync_gps_odo,
+#                               or_g = [0, 0, 0],
+#                               or_o = [0, 0, 0],
+#                               first_index = 0,
+#                               period = None,
+#                               prune = 1):
+#def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
+
+
         # Post-processed Trajectory
         #if self.post_window is not None:
         #    self.compute_post_process_trajectory()
@@ -417,16 +427,19 @@ class LocalizationByLeastSquares:
         if len_trajectory == 0:
             #first_index = 0
             len_sync_gps_odo = len(self.sync_gps_odo)
-            last_index = len_sync_gps_odo - 1
-            first = self.sync_gps_odo[0]
-            last = self.sync_gps_odo[last_index]
-            if abs(last.tra - first.tra) > self.window:
+            #last_index = len_sync_gps_odo - 1
+            #first = self.sync_gps_odo[0]
+            #last = self.sync_gps_odo[last_index]
+            last = self.sync_gps_odo[-1]
+            #if abs(last.tra - first.tra) > self.window:
+            if last.tra is not None and abs(last.tra) > self.window:
                 #or_o = or_g = first.odo
-                or_o = first.odo
-                or_g = first.gps
+                #or_o = first.odo
+                #or_g = first.gps
+                # TODO zrusit rot
                 rot, qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
-                                                           or_g = or_g,
-                                                           or_o = or_o,
+                                                           or_o = [0.0, 0.0, 0.0],
+                                                           or_g = [0.0, 0.0, 0.0],
                                                            first_index = 0,
                                                            period = len_sync_gps_odo)
                 for k in range(len_sync_gps_odo):
@@ -438,10 +451,12 @@ class LocalizationByLeastSquares:
                 # rotation and scale estimated by GPS when the full length
                 # window has not been reached, yet
                 rot_est, qua_est, sca_est = compute_rotation_and_scale(self.sync_gps_odo,
-                                                                       or_g = first.gps,
-                                                                       or_o = first.odo,
+                                                                       or_o = [0.0, 0.0, 0.0],
+                                                                       or_g = [0.0, 0.0, 0.0],
                                                                        first_index = 0,
                                                                        period = len_sync_gps_odo)
+                input_origin  = [0.0, 0.0, 0.0]
+                output_origin = [0.0, 0.0, 0.0]
                 if all(var is not None for var in [qua_est, sca_est, self.initial_rotation, self.initial_scale]):
                     # Estimating pose3d at the start part of the trajectory
                     # -----------------------------------------------------
@@ -460,22 +475,22 @@ class LocalizationByLeastSquares:
                         weight = travelled / self.initial_window
                     qua = quaternion.slerp(self.initial_rotation, qua_est, weight)
                     sca = (1 - weight)*self.initial_scale + weight*sca_est
-                    pose3d_xyz = rotate_and_scale(qua, sca, last.odo, first.odo, first.gps)
+                    pose3d_xyz = rotate_and_scale(qua, sca, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(qua, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
-                    # for debugging, to be removed
-                    pose3d_xyz_init = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, first.odo, first.gps)
+                    # TODO for debugging, to be removed
+                    pose3d_xyz_init = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, input_origin, output_origin)
                     pose3d_ori_init = quaternion.multiply(self.initial_rotation, last.ori)
                     self.plot_init.append(pose3d_xyz_init)
-                    pose3d_xyz_est = rotate_and_scale(qua_est, sca_est, last.odo, first.odo, first.gps)
+                    pose3d_xyz_est = rotate_and_scale(qua_est, sca_est, last.odo, input_origin, output_origin)
                     pose3d_ori_est = quaternion.multiply(qua_est, last.ori)
                     self.plot_est.append(pose3d_xyz_est)
                 elif all(var is not None for var in [self.initial_rotation, self.initial_scale]):
-                    pose3d_xyz = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, first.odo, first.gps)
+                    pose3d_xyz = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(self.initial_rotation, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
                 elif all(var is not None for var in [qua_est, sca_est]):
-                    pose3d_xyz = rotate_and_scale(qua_est, sca_est, last.odo, first.odo, first.gps)
+                    pose3d_xyz = rotate_and_scale(qua_est, sca_est, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(qua_est, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
             self.window_first_index = 0
