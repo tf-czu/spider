@@ -600,7 +600,8 @@ class LeastSquaresLocalization(Node):
                                tra = self.odo_parser_encoders.get_distance_travelled())
                 #self.sync_gps_odo.append(s)
                 #self.compute_trajectory()
-            self.plot_xyz_by_encoders.append(xyz)
+            scaled_xyz = [value / 400 for value in xyz]
+            self.plot_xyz_by_encoders.append(scaled_xyz)
         #pose3d = self.get_pose3d()
         #if pose3d is not None:
         #    self.publish('pose3d', pose3d)
