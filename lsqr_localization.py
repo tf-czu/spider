@@ -56,7 +56,7 @@ class LeastSquaresLocalization(Node):
         self.nmea_tracker.input_nmea(data)
         xyz = self.nmea_tracker.get_xyz()
         self.loc.time = self.time
-        self.loc.input_nmea_xyz(xyz)
+        self.loc.input_gps_xyz(xyz)
 
     def on_pose2d(self, data):
         """

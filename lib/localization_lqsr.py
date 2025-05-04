@@ -291,7 +291,15 @@ class LocalizationByLeastSquares:
         self.distance_travelled_scale = None
         self.distance_travelled = None
 
-    def input_nmea_xyz(self, xyz):
+    def input_gps_xyz(self, xyz):
+        """
+            Process next data obtained from GPS.
+
+            Args:
+                xyz (list of float): list of three values `[x, y, z]`
+                    representing cartesian coordinates which are expected to be
+                    derived from GPS data
+        """
         if xyz is not None:
             self.last_sync_gps = xyz
 
@@ -328,8 +336,9 @@ class LocalizationByLeastSquares:
 
             Args:
                 distance (float): preferably in meters but the unit is not
-                    important as the result is being synchronized with GPS, anyway;
-                    moreover, it is expected that this value is scale-error prone
+                    important as the result is being synchronized with GPS;
+                    moreover, it is expected that this value is heavily
+                    scale-error prone
         """
         self.distance_travelled_raw += distance
         if self.distance_travelled_scale is not None:
@@ -553,10 +562,6 @@ class LocalizationByLeastSquares:
         for s in self.sync_gps_odo:
             plot_gps.append(s.gps)
             plot_odo.append(s.odo)
-        print("plot_odo:", len(plot_odo))
-        #for xyz in plot_odo:
-        #    print(xyz)
-        print(plot_odo[0], plot_odo[-1])
         # list of drawn trajectories
         trajectories = []
         # plot post-processed trajectory
@@ -570,11 +575,11 @@ class LocalizationByLeastSquares:
                     "label": "post-processing",
                 })
         trajectories.extend([
-               #{
-               #    "trajectory": plot_gps,
-               #    "options": "c+",
-               #    "label": "GPS",
-               #},
+                {
+                    "trajectory": plot_gps,
+                    "options": "c+",
+                    "label": "GPS",
+                },
                 {
                     "trajectory": plot_odo,
                     "options": "g.",
