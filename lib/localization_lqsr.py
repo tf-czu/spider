@@ -291,7 +291,7 @@ class LocalizationByLeastSquares:
         self.distance_travelled_scale = None
         self.distance_travelled = None
 
-    def input_gps_xyz(self, xyz):
+    def input_gps_xyz(self, time, xyz):
         """
             Process next data obtained from GPS.
 
@@ -330,7 +330,7 @@ class LocalizationByLeastSquares:
             #self.publish('pose3d', pose3d)
             self.plot_pose3d.append(pose3d[0])
 
-    def input_distance_travelled(self, distance):
+    def input_distance_travelled(self, time, distance):
         """
             Process next data obtained from odometry.
 
@@ -350,7 +350,7 @@ class LocalizationByLeastSquares:
                 self.last_sync_odo[i] += distance_3d[i]
             #print("->", self.last_sync_odo)
             if self.last_sync_gps is not None:
-                s = SyncGpsOdo(time = self.time,
+                s = SyncGpsOdo(time = time,
                                gps = copy.copy(self.last_sync_gps),
                                odo = copy.copy(self.last_sync_odo),
                                ori = copy.copy(self.last_sync_ori),

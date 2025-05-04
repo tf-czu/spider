@@ -55,8 +55,7 @@ class LeastSquaresLocalization(Node):
         """
         self.nmea_tracker.input_nmea(data)
         xyz = self.nmea_tracker.get_xyz()
-        self.loc.time = self.time
-        self.loc.input_gps_xyz(xyz)
+        self.loc.input_gps_xyz(self.time, xyz)
 
     def on_pose2d(self, data):
         """
@@ -69,11 +68,10 @@ class LeastSquaresLocalization(Node):
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... ???
         """
-        self.loc.time = self.time
         self.odo_tracker_pose2d.input_pose2d(data)
         distance = self.odo_tracker_pose2d.get_distance()
         if distance is not None:
-            self.loc.input_distance_travelled(distance)
+            self.loc.input_distance_travelled(self.time, distance)
         #self.loc.on_pose2d(data)
         return
         distance_3d = self.odo_tracker_pose2d.input_pose2d(data)
