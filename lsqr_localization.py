@@ -114,9 +114,6 @@ class LeastSquaresLocalization(Node):
         #    self.plot_pose3d.append(pose3d[0])
 
     def on_orientation(self, data):
-        self.loc.time = self.time
-        self.loc.on_orientation(data)
-        return
         """
             Process next data obtained from IMU.
 
@@ -124,9 +121,11 @@ class LeastSquaresLocalization(Node):
                 data (list of float): list of four values representing a
                     quaternion that represents the orientation of the robot
         """
-        self.odo_tracker_pose2d.input_orientation(data)
-        self.odo_tracker_encoders.input_orientation(data)
-        self.last_sync_ori = data
+        self.loc.input_orientation(self.time, data)
+        #return
+        #self.odo_tracker_pose2d.input_orientation(data)
+        #self.odo_tracker_encoders.input_orientation(data)
+        #self.last_sync_ori = data
 
     def get_pose3d(self):
         """

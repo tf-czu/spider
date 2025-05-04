@@ -383,7 +383,7 @@ class LocalizationByLeastSquares:
         #    self.plot_pose3d.append(pose3d[0])
 
 
-    def on_orientation(self, data):
+    def input_orientation(self, time, data):
         """
             Process next data obtained from IMU.
 
