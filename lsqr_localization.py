@@ -315,8 +315,10 @@ class LeastSquaresLocalization(Node):
                 trajectory on which the trajectory is estimated by `initial_scale`
                 and `initial_rotation`
 
-            * `nmea_tracker` (NMEATracker): parses input GPS data
-            * `odo_tracker_pose2d` (OdometryTracker): parses input odometry and IMU data
+            * `nmea_tracker` (NMEATracker): tracks trajectory given by GPS
+                input
+            * `odo_tracker_pose2d` (OdometryTracker): tracks trajectory given
+                by odometry and IMU input
     """
 
     def __init__(self, config, bus):
@@ -396,7 +398,7 @@ class LeastSquaresLocalization(Node):
                         * `"age"`
                         * `"stn_id"`
         """
-        self.nmea_tracker.parse(data)
+        self.nmea_tracker.input_nmea(data)
         xyz = self.nmea_tracker.get_xyz()
         if xyz is not None:
             self.last_sync_gps = xyz
@@ -412,7 +414,7 @@ class LeastSquaresLocalization(Node):
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... ???
         """
-        distance_3d = self.odo_tracker_pose2d.parse_pose2d(data)
+        distance_3d = self.odo_tracker_pose2d.input_pose2d(data)
         xyz = self.odo_tracker_pose2d.get_xyz()
         if xyz is not None:
             if self.last_sync_gps is not None:
@@ -429,7 +431,7 @@ class LeastSquaresLocalization(Node):
             self.plot_pose3d.append(pose3d[0])
 
     def on_encoders(self, data):
-        distance_3d = self.odo_tracker_encoders.parse_encoders(data)
+        distance_3d = self.odo_tracker_encoders.input_encoders(data)
         xyz = self.odo_tracker_encoders.get_xyz()
         #print("xyz:", xyz)
         if xyz is not None:
@@ -457,8 +459,8 @@ class LeastSquaresLocalization(Node):
                 data (list of float): list of four values representing a
                     quaternion that represents the orientation of the robot
         """
-        self.odo_tracker_pose2d.parse_orientation(data)
-        self.odo_tracker_encoders.parse_orientation(data)
+        self.odo_tracker_pose2d.input_orientation(data)
+        self.odo_tracker_encoders.input_orientation(data)
         self.last_sync_ori = data
 
     def get_pose3d(self):

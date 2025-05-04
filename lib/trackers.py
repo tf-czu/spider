@@ -14,7 +14,7 @@ class NMEATracker:
         self.alt_0 = None
         self.xyz = None
 
-    def parse(self, data):
+    def input_nmea(self, data):
         """
             Process next GPS data.
 
@@ -70,7 +70,7 @@ class OdometryTracker:
         self.distance_travelled = 0.0
         self.odometry_from = None
 
-    def parse_pose2d(self, data): # pose2d format required
+    def input_pose2d(self, data): # pose2d format required
         """
             Process next odometry data.
 
@@ -109,7 +109,7 @@ class OdometryTracker:
         else:
             return None
 
-    def parse_encoders(self, data):
+    def input_encoders(self, data):
         """
             Process next odometry data.
 
@@ -137,7 +137,7 @@ class OdometryTracker:
         else:
             return None
 
-    def parse_orientation(self, data):
+    def input_orientation(self, data):
         """
             Process next IMU data.
 
