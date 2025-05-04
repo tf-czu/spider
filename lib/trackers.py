@@ -5,7 +5,7 @@ from osgar.lib.route import Convertor as GPSConvertor
 
 import osgar.lib.quaternion as quaternion
 
-class NMEAParser:
+class NMEATracker:
     """
         Converts GPS data to Cartesian coordinates.
     """
@@ -59,7 +59,7 @@ class NMEAParser:
         """
         return self.xyz
 
-class OdometryParser:
+class OdometryTracker:
     """
         Converts odometry and IMU data to Cartesian coordinates.
     """
