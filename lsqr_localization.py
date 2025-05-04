@@ -27,7 +27,7 @@ class LeastSquaresLocalization(Node):
 
         # data trackers
         self.nmea_tracker = NMEATracker()
-        #self.odo_tracker_pose2d = OdometryTracker()
+        self.odo_tracker_pose2d = OdometryTracker()
         #self.odo_tracker_encoders = OdometryTracker()
 
     def on_nmea(self, data):
@@ -70,7 +70,11 @@ class LeastSquaresLocalization(Node):
                     * `heading` ... ???
         """
         self.loc.time = self.time
-        self.loc.on_pose2d(data)
+        self.odo_tracker_pose2d.input_pose2d(data)
+        distance = self.odo_tracker_pose2d.get_distance()
+        if distance is not None:
+            self.loc.input_distance_travelled(distance)
+        #self.loc.on_pose2d(data)
         return
         distance_3d = self.odo_tracker_pose2d.input_pose2d(data)
         xyz = self.odo_tracker_pose2d.get_xyz()
@@ -89,8 +93,8 @@ class LeastSquaresLocalization(Node):
             self.plot_pose3d.append(pose3d[0])
 
     def on_encoders(self, data):
-        self.loc.time = self.time
-        self.loc.on_encoders(data)
+        #self.loc.time = self.time
+        #self.loc.on_encoders(data)
         return
         distance_3d = self.odo_tracker_encoders.input_encoders(data)
         xyz = self.odo_tracker_encoders.get_xyz()

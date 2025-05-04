@@ -38,9 +38,9 @@
             and the angle error of the IMU would be constant ... they are not.
         The algorithm therefore does not compute the scale and the angle error
             from the whole input data series but uses a moving window.
-        This also allows a computation of the trajectory in real time.
-
-    Contents:
+        This also allows a computat,ion of the trajectory in real time.
+                                   ,
+    Contents:                      ,
 
         * `SyncGpsOdo`: named tuple representing one item in the list of
             synchronized GPS and odometry positions
@@ -58,7 +58,7 @@
             osgar.node.Node that computes the trajectory
 """
 
-import math
+import math, copy
 from collections import namedtuple
 
 import osgar.lib.quaternion as quaternion
@@ -273,6 +273,7 @@ class LocalizationByLeastSquares:
         self.sync_gps_odo = []
         self.last_sync_gps = None
         self.last_sync_ori = None
+        self.last_sync_odo = [0.0, 0.0, 0.0]
         # data trackers
         self.nmea_tracker = NMEATracker()
         self.odo_tracker_pose2d = OdometryTracker()
@@ -285,6 +286,10 @@ class LocalizationByLeastSquares:
         self.plot_est = []
 
         self.plot_xyz_by_encoders = []
+
+        self.distance_travelled_raw = 0
+        self.distance_travelled_scale = None
+        self.distance_travelled = None
 
     def input_nmea_xyz(self, xyz):
         if xyz is not None:
@@ -311,7 +316,38 @@ class LocalizationByLeastSquares:
                                ori = self.last_sync_ori,
                                tra = self.odo_tracker_pose2d.get_distance_travelled())
                 self.sync_gps_odo.append(s)
-                self.compute_trajectory()
+                # TODO self.compute_trajectory()
+        pose3d = self.get_pose3d()
+        if pose3d is not None:
+            #self.publish('pose3d', pose3d)
+            self.plot_pose3d.append(pose3d[0])
+
+    def input_distance_travelled(self, distance):
+        """
+            Process next data obtained from odometry.
+
+            Args:
+                distance (float): preferably in meters but the unit is not
+                    important as the result is being synchronized with GPS, anyway;
+                    moreover, it is expected that this value is scale-error prone
+        """
+        self.distance_travelled_raw += distance
+        if self.distance_travelled_scale is not None:
+            self.distance_travelled = self.distance_travelled_scale * self.distance_travelled_raw
+        if self.last_sync_ori is not None:
+            distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_sync_ori)
+            #print(self.last_sync_odo, distance_3d)
+            for i in range(len(self.last_sync_odo)):
+                self.last_sync_odo[i] += distance_3d[i]
+            #print("->", self.last_sync_odo)
+            if self.last_sync_gps is not None:
+                s = SyncGpsOdo(time = self.time,
+                               gps = copy.copy(self.last_sync_gps),
+                               odo = copy.copy(self.last_sync_odo),
+                               ori = copy.copy(self.last_sync_ori),
+                               tra = self.distance_travelled)
+                self.sync_gps_odo.append(s)
+                # TODO self.compute_trajectory()
         pose3d = self.get_pose3d()
         if pose3d is not None:
             #self.publish('pose3d', pose3d)
@@ -517,6 +553,10 @@ class LocalizationByLeastSquares:
         for s in self.sync_gps_odo:
             plot_gps.append(s.gps)
             plot_odo.append(s.odo)
+        print("plot_odo:", len(plot_odo))
+        #for xyz in plot_odo:
+        #    print(xyz)
+        print(plot_odo[0], plot_odo[-1])
         # list of drawn trajectories
         trajectories = []
         # plot post-processed trajectory
@@ -530,31 +570,31 @@ class LocalizationByLeastSquares:
                     "label": "post-processing",
                 })
         trajectories.extend([
-                {
-                    "trajectory": plot_gps,
-                    "options": "c+",
-                    "label": "GPS",
-                },
+               #{
+               #    "trajectory": plot_gps,
+               #    "options": "c+",
+               #    "label": "GPS",
+               #},
                 {
                     "trajectory": plot_odo,
                     "options": "g.",
                     "label": "Odometry & IMU",
                 },
-                {
-                    "trajectory": self.plot_pose3d,
-                    "options": "b.",
-                    "label": "pose3d",
-                },
-                {
-                    "trajectory": self.plot_init,
-                    "options": "m.",
-                    "label": "estimation by initial angle & scale",
-                },
-                {
-                    "trajectory": self.plot_xyz_by_encoders,
-                    "options": "r.",
-                    "label": "xyz_by_encoders",
-                },
+               #{
+               #    "trajectory": self.plot_pose3d,
+               #    "options": "b.",
+               #    "label": "pose3d",
+               #},
+               #{
+               #    "trajectory": self.plot_init,
+               #    "options": "m.",
+               #    "label": "estimation by initial angle & scale",
+               #},
+               #{
+               #    "trajectory": self.plot_xyz_by_encoders,
+               #    "options": "r.",
+               #    "label": "xyz_by_encoders",
+               #},
             ])
         for trajectory in trajectories:
             list_of_x = []

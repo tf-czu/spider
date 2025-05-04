@@ -69,6 +69,7 @@ class OdometryTracker:
         self.xyz = [0.0, 0.0, 0.0]
         self.distance_travelled = 0.0
         self.odometry_from = None
+        self.distance = None
 
     def input_pose2d(self, data): # pose2d format required
         """
@@ -99,15 +100,19 @@ class OdometryTracker:
             if direction < 0:
                 distance = -distance
             self.distance_travelled += distance
+        self.distance = distance
         self.raw_odo = current_raw_odo
         # compute xyz from odometry and IMU
-        if self.orientation != None:
+        if self.orientation is not None:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.orientation)
             for i in range(len(self.xyz)):
                 self.xyz[i] += distance_3d[i]
             return distance_3d
         else:
             return None
+
+    def get_distance(self):
+        return self.distance
 
     def input_encoders(self, data):
         """
@@ -129,7 +134,7 @@ class OdometryTracker:
         distance = (data[0] + data[1]) / 2
         self.distance_travelled += distance
         # compute xyz from odometry and IMU
-        if self.orientation != None:
+        if self.orientation is not None:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.orientation)
             for i in range(len(self.xyz)):
                 self.xyz[i] += distance_3d[i]
