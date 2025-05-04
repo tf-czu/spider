@@ -274,10 +274,6 @@ class LocalizationByLeastSquares:
         self.last_sync_gps = None
         self.last_sync_ori = None
         self.last_sync_odo = [0.0, 0.0, 0.0]
-        # data trackers
-        #self.nmea_tracker = NMEATracker()
-        #self.odo_tracker_pose2d = OdometryTracker()
-        #self.odo_tracker_encoders = OdometryTracker()
         # output
         self.pose3d = None
         # for debugging
@@ -303,40 +299,15 @@ class LocalizationByLeastSquares:
         if xyz is not None:
             self.last_sync_gps = xyz
 
-#    def on_pose2d(self, data):
-#        """
-#            Process next data obtained from odometry.
-#
-#            Args:
-#                data (list of int): list of three values `[x, y, heading]`
-#                    where:
-#                    * `x` ... x-coordinate in [mm] originating from odometry
-#                    * `y` ... y-coordinate in [mm] originating from odometry
-#                    * `heading` ... ???
-#        """
-#        distance_3d = self.odo_tracker_pose2d.input_pose2d(data)
-#        xyz = self.odo_tracker_pose2d.get_xyz()
-#        if xyz is not None:
-#            if self.last_sync_gps is not None:
-#                s = SyncGpsOdo(time = self.time,
-#                               gps = self.last_sync_gps,
-#                               odo = xyz,
-#                               ori = self.last_sync_ori,
-#                               tra = self.odo_tracker_pose2d.get_distance_travelled())
-#                self.sync_gps_odo.append(s)
-#                # TODO self.compute_trajectory()
-#        pose3d = self.get_pose3d()
-#        if pose3d is not None:
-#            #self.publish('pose3d', pose3d)
-#            self.plot_pose3d.append(pose3d[0])
-
     def input_distance_travelled(self, time, distance):
         """
             Process next data obtained from odometry.
 
             Args:
-                distance (float): preferably in meters but the unit is not
-                    important as the result is being synchronized with GPS;
+                distance (float): distance travelled, relative from the last
+                    measurement;
+                    preferably in meters but the unit is not important as the
+                    result is being synchronized with GPS;
                     moreover, it is expected that this value is heavily
                     scale-error prone
         """
@@ -345,10 +316,8 @@ class LocalizationByLeastSquares:
             self.distance_travelled = self.distance_travelled_scale * self.distance_travelled_raw
         if self.last_sync_ori is not None:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_sync_ori)
-            #print(self.last_sync_odo, distance_3d)
             for i in range(len(self.last_sync_odo)):
                 self.last_sync_odo[i] += distance_3d[i]
-            #print("->", self.last_sync_odo)
             if self.last_sync_gps is not None:
                 s = SyncGpsOdo(time = time,
                                gps = copy.copy(self.last_sync_gps),
@@ -362,26 +331,6 @@ class LocalizationByLeastSquares:
             #self.publish('pose3d', pose3d)
             self.plot_pose3d.append(pose3d[0])
 
-#    def on_encoders(self, data):
-#        distance_3d = self.odo_tracker_encoders.input_encoders(data)
-#        xyz = self.odo_tracker_encoders.get_xyz()
-#        #print("xyz:", xyz)
-#        if xyz is not None:
-#            if self.last_sync_gps is not None:
-#                s = SyncGpsOdo(time = self.time,
-#                               gps = self.last_sync_gps,
-#                               odo = xyz,
-#                               ori = self.last_sync_ori,
-#                               tra = self.odo_tracker_encoders.get_distance_travelled())
-#                #self.sync_gps_odo.append(s)
-#                #self.compute_trajectory()
-#            scaled_xyz = [value / 400 for value in xyz]
-#            self.plot_xyz_by_encoders.append(scaled_xyz)
-#        #pose3d = self.get_pose3d()
-#        #if pose3d is not None:
-#        #    self.publish('pose3d', pose3d)
-#        #    self.plot_pose3d.append(pose3d[0])
-
     def input_orientation(self, time, data):
         """
             Process next data obtained from IMU.
@@ -390,9 +339,15 @@ class LocalizationByLeastSquares:
                 data (list of float): list of four values representing a
                     quaternion that represents the orientation of the robot
         """
-        #self.odo_tracker_pose2d.input_orientation(data)
-        #self.odo_tracker_encoders.input_orientation(data)
         self.last_sync_ori = data
+
+    def get_distance_travelled(self):
+        """
+            Returns (float): total distance travelled from time = 0;
+                or `None` if this value is not yet reliable which happens at
+                the beginning of the movement
+        """
+        return self.distance_travelled
 
     def get_pose3d(self):
         """
