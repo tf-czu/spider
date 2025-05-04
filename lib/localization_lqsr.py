@@ -76,39 +76,6 @@ from lib.trackers import NMEATracker, OdometryTracker
 #   * tra (float): distance travelled
 SyncGpsOdo = namedtuple("SyncGpsOdo", "time gps odo ori tra")
 
-def draw_trajectories(trajectories):
-    """
-        Draws a plot (see matplotlib) of several trajectories.
-
-        Args:
-            trajectories (list of dict): every item of the list is a `dict`
-                with the keys:
-
-                * `"trajectory"` ... list of tuples `(x, y)`
-                * `"options"` ... plot options accepted by matplotlib
-                * `"label"` ... description of the trajectory
-
-        Example:
-
-            draw_trajectories([{
-                    "trajectory": [(0,1), (1,2), (2,4), (3,8), (4,16)],
-                    "options": "b.",
-                    "label": "Example trajectory",
-                }])
-
-    """
-    import matplotlib.pyplot as plt
-    for trajectory in trajectories:
-        list_of_x = []
-        list_of_y = []
-        for coords in trajectory["trajectory"]:
-            list_of_x.append(coords[0])
-            list_of_y.append(coords[1])
-        plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
-    plt.legend()
-    plt.axis('equal')
-    plt.show()
-
 def compute_rotation_and_scale(sync_gps_odo,
                                or_g = [0, 0, 0],
                                or_o = [0, 0, 0],
@@ -538,6 +505,7 @@ class LocalizationByLeastSquares:
             self.trajectory.append(self.pose3d)
 
     def draw(self):
+        import matplotlib.pyplot as plt
 
         #print("len:", len(self.plot_xyz_by_encoders))
         #for xyz in self.plot_xyz_by_encoders:
@@ -550,18 +518,18 @@ class LocalizationByLeastSquares:
             plot_gps.append(s.gps)
             plot_odo.append(s.odo)
         # list of drawn trajectories
-        draw_list = []
+        trajectories = []
         # plot post-processed trajectory
         if self.post_window is not None:
             plot_post_trajectory = []
             for xyz, ori in self.post_trajectory:
                 plot_post_trajectory.append(xyz)
-            draw_list.append({
+            trajectories.append({
                     "trajectory": plot_post_trajectory,
                     "options": "y.",
                     "label": "post-processing",
                 })
-        draw_list.extend([
+        trajectories.extend([
                 {
                     "trajectory": plot_gps,
                     "options": "c+",
@@ -588,5 +556,15 @@ class LocalizationByLeastSquares:
                     "label": "xyz_by_encoders",
                 },
             ])
-        draw_trajectories(draw_list)
+        for trajectory in trajectories:
+            list_of_x = []
+            list_of_y = []
+            for coords in trajectory["trajectory"]:
+                list_of_x.append(coords[0])
+                list_of_y.append(coords[1])
+            plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
+        plt.legend()
+        plt.axis('equal')
+        plt.show()
+
 
