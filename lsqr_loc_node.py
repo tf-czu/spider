@@ -2,8 +2,10 @@
 
 import math
 
-from lib.trackers import NMEATracker, OdometryTracker
 from osgar.node import Node
+
+from osgar.lib.route import Convertor as GPSConvertor
+
 from lib.localization_lqsr import LocalizationByLeastSquares
 
 class LeastSquaresLocalization(Node):
@@ -30,14 +32,15 @@ class LeastSquaresLocalization(Node):
         self.encoders_scale = config.get('enc_scale', 0.00218)
         assert self.encoders_scale is not None
 
-        # tracker to convert GPS data to cartesian coordinates
-        self.nmea_tracker = NMEATracker()
-
         # choose the source of odometry
         #self.odometry_from = "pose2d"
         self.odometry_from = "encoders"
         # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
+
+        # converting GPS to cartesian coordinates
+        self.gps_converter = None
+        self.gps_alt_0 = None
 
         # for debugging
         self.plot_gps = []
@@ -51,27 +54,23 @@ class LeastSquaresLocalization(Node):
             Args:
                 data (dict): GPS data according to NMEA format;
                     contains keys:
-                        * `"identifier"`
-                        * `"lon"`
-                        * `"lon_dir"`
-                        * `"lat"`
-                        * `"lat_dir"`
-                        * `"utc_time"`
-                        * `"quality"`
-                        * `"sats"`
-                        * `"hdop"`
-                        * `"alt"`
-                        * `"a_units"`
-                        * `"undulation"`
-                        * `"u_units"`
-                        * `"age"`
-                        * `"stn_id"`
+                        "identifier", "lon", "lon_dir", "lat", "lat_dir",
+                        "utc_time", "quality", "sats", "hdop", "alt",
+                        "a_units", "undulation", "u_units", "age", "stn_id"
         """
-        self.nmea_tracker.input_nmea(data)
-        xyz = self.nmea_tracker.get_xyz()
-        self.loc.input_gps_xyz(self.time, xyz)
+        assert data["lon_dir"] == "E"
+        assert data["lat_dir"] == "N"
+        if self.gps_converter:
+            x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
+            z = data["alt"] - self.gps_alt_0
+            gps_xyz = [x, y, z]
+        else:
+            self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
+            self.gps_alt_0 = data["alt"]
+            gps_xyz = [0.0, 0.0, 0.0]
+        self.loc.input_gps_xyz(self.time, gps_xyz)
         # for debugging
-        self.plot_gps.append(xyz)
+        self.plot_gps.append(gps_xyz)
 
     def on_pose2d(self, data):
         """
