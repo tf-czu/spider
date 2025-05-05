@@ -283,9 +283,7 @@ class LocalizationByLeastSquares:
 
         self.plot_xyz_by_encoders = []
 
-        self.distance_travelled_raw = 0
-        self.distance_travelled_scale = None
-        self.distance_travelled = None
+        self.distance_travelled = 0
 
     def input_gps_xyz(self, time, xyz):
         """
@@ -307,9 +305,7 @@ class LocalizationByLeastSquares:
                 distance (float): distance travelled in meters; relative from
                     the last measurement;
         """
-        self.distance_travelled_raw += distance
-        if self.distance_travelled_scale is not None:
-            self.distance_travelled = self.distance_travelled_scale * self.distance_travelled_raw
+        self.distance_travelled += distance
         if self.last_sync_ori is not None:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.last_sync_ori)
             for i in range(len(self.last_sync_odo)):
@@ -321,7 +317,7 @@ class LocalizationByLeastSquares:
                                ori = copy.copy(self.last_sync_ori),
                                tra = self.distance_travelled)
                 self.sync_gps_odo.append(s)
-                #self.compute_trajectory()
+                self.compute_trajectory()
                 #if self.post_window is not None:
                 #    self.compute_post_process_trajectory()
 
@@ -340,14 +336,6 @@ class LocalizationByLeastSquares:
                     quaternion that represents the orientation of the robot
         """
         self.last_sync_ori = data
-
-    def get_distance_travelled(self):
-        """
-            Returns (float): total distance travelled from time = 0;
-                or `None` if this value is not yet reliable which happens at
-                the beginning of the movement
-        """
-        return self.distance_travelled
 
     def get_pose3d(self):
         """
@@ -438,9 +426,11 @@ class LocalizationByLeastSquares:
                 #or_o = first.odo
                 #or_g = first.gps
                 # TODO zrusit rot
+                or_o = [0.0, 0.0, 0.0]
+                or_g = [0.0, 0.0, 0.0]
                 rot, qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
-                                                           or_o = [0.0, 0.0, 0.0],
-                                                           or_g = [0.0, 0.0, 0.0],
+                                                           or_o = or_o,
+                                                           or_g = or_g,
                                                            first_index = 0,
                                                            period = len_sync_gps_odo)
                 for k in range(len_sync_gps_odo):
@@ -467,13 +457,10 @@ class LocalizationByLeastSquares:
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
-                    travelled = abs(self.get_distance_travelled())
-                    if travelled is None:
-                        weight = 0.0
-                    elif travelled > self.initial_window:
+                    if self.distance_travelled > self.initial_window:
                         weight = 1.0
                     else:
-                        weight = travelled / self.initial_window
+                        weight = self.distance_travelled / self.initial_window
                     qua = quaternion.slerp(self.initial_rotation, qua_est, weight)
                     sca = (1 - weight)*self.initial_scale + weight*sca_est
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, input_origin, output_origin)
@@ -557,11 +544,11 @@ class LocalizationByLeastSquares:
                     "options": "g.",
                     "label": "Odometry & IMU",
                 },
-               #{
-               #    "trajectory": self.plot_pose3d,
-               #    "options": "b.",
-               #    "label": "pose3d",
-               #},
+                {
+                    "trajectory": self.plot_pose3d,
+                    "options": "b.",
+                    "label": "pose3d",
+                },
                #{
                #    "trajectory": self.plot_init,
                #    "options": "m.",
