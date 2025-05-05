@@ -8,7 +8,7 @@ from osgar.lib.route import Convertor as GPSConvertor
 
 from lib.tracker_lqsr import TrackerLeastSquares
 
-class LeastSquaresLocalization(Node):
+class Localization(Node):
     """
         Computes trajectory from asynchronously provided GPS, odometry, and IMU
             data.

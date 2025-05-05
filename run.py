@@ -6,7 +6,7 @@ from osgar.logger import LogReader, lookup_stream_id
 from osgar.lib.serialize import deserialize
 from osgar.bus import Bus
 
-from lsqr_loc_node import LeastSquaresLocalization
+from localization import Localization
 
 def main():
     arg_parser = argparse.ArgumentParser(description = 'Applies LeastSquaresLocalization to an OSGAR log; plots the results')
@@ -60,7 +60,7 @@ def main():
 
     list_of_stream_ids = [id_ori, id_gps, id_p2d, id_enc]
 
-    localization = LeastSquaresLocalization(config, bus.handle('abc'))
+    localization = Localization(config, bus.handle('abc'))
 
     with LogReader(path_log, only_stream_id = list_of_stream_ids) as log:
         #counter = 0
