@@ -188,37 +188,7 @@ def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
 class LocalizationByLeastSquares:
     """
         Computes trajectory from asynchronously provided GPS, odometry, and IMU
-            data.
-
-        Attributes:
-
-            * `sync_gps_odo` (list of SyncGpsOdo): synchronized input data
-                = positions from GPS and odometry+IMU
-            * `last_sync_gps` (list of float): x, y, z representing the last
-                position obtained from GPS (z is always 0.0)
-            * `last_sync_ori` (list of float): quaternion representing the last
-                orientation obtained from IMU
-            * `pose3d` (list of list of float): output ... list with two items
-                containing position and orientation
-
-            * `trajectory` (list of pose3d): real-time computed trajectory
-            * `window` (float): length of this window in meters
-            * `window_first_index` (int): first position of `window` in
-                `sync_gps_odo`
-
-            * `post_trajectory` (list of pose3d): trajectory computed when all
-                data are gathered
-            * `post_window` (float): length of this window in meters 
-
-            * `prune` (int): pruning of the input data; if prune == n then only
-                every n-th item of `sync_gps_odo` is considered when computing
-                rotation and scale
-
-            * `initial_scale` (float): initial scale
-            * `initial_rotation` (list of float): initial rotation as a quaternion
-            * `initial_window` (float): initial length (in meters) of the
-                trajectory on which the trajectory is estimated by `initial_scale`
-                and `initial_rotation`
+            data using the least squares criterion.
     """
 
     def __init__(self, options):
@@ -226,24 +196,17 @@ class LocalizationByLeastSquares:
         # input parameters
         # ----------------------------------------------------
         # length of the moving window in meters
-        # used when the trajectory is computed in real time
         self.window = options["window"]
         # window that is used when the trajectory is supposed to be computed by
         # post-processing, that is, when all the data are gathered;
         # if `None` then no post-processed trajectory is computed
-        # trajectory computed by post-processing, that is, when enough data is
-        # gathered
         self.post_window = options["post window"]
         # pruning of the data;
         # only every n-th data sample is taken when performing the
         # least-squares method
         self.prune = options["prune"]
-        # TODO doc
-        # initial window and values
-        # for first 
-        # angle (in ), scale and rotation quaternion
-        # this is utilized to estimate pose3d at the start part of the
-        # trajectory when the distance travelled is still shorter than the
+        # values for the initial computation of the trajectory when GPS and
+        # odometry+IMU is still too unreliable
         self.initial_window = options["initial window"] # in meters
         self.initial_scale = options["initial scale"]
         self.initial_angle = options["initial angle"] # in degrees
@@ -256,10 +219,12 @@ class LocalizationByLeastSquares:
         # ----------------------------------------------------
         # other attributes
         # ----------------------------------------------------
+        # total distance travelled by the robot from time=0
+        self.distance_travelled = 0
         # computed trajectories
         self.trajectory = []
         self.post_trajectory = []
-        # position of the moving window
+        # position of the moving window (index in `sync_gps_odo`)
         self.window_first_index = None
         # time series of synchronized positions from GPS and odometry
         self.sync_gps_odo = []
@@ -275,27 +240,24 @@ class LocalizationByLeastSquares:
 
         self.plot_xyz_by_encoders = []
 
-        self.distance_travelled = 0
-
     def input_gps_xyz(self, time, xyz):
         """
-            Process next data obtained from GPS.
+            Process next position obtained from GPS.
 
             Args:
                 xyz (list of float): list of three values `[x, y, z]`
-                    representing cartesian coordinates which are expected to be
-                    derived from GPS data
+                    representing cartesian coordinates derived from GPS data
         """
         if xyz is not None:
             self.last_sync_gps = xyz
 
     def input_distance_travelled(self, time, distance):
         """
-            Process next data obtained from odometry.
+            Process next (relative) distance travelled obtained from odometry.
 
             Args:
                 distance (float): distance travelled in meters; relative from
-                    the last measurement;
+                    the last measurement
         """
         self.distance_travelled += distance
         if self.last_sync_ori is not None:
@@ -321,17 +283,21 @@ class LocalizationByLeastSquares:
 
     def input_orientation(self, time, data):
         """
-            Process next data obtained from IMU.
+            Process next orientation quaternion obtained from IMU.
 
             Args:
-                data (list of float): list of four values representing a
-                    quaternion that represents the orientation of the robot
+                data (list of float): orientation of the robot as a quaternion
+                    a+bi+cj+dk given by the list `[b,c,d,a]`
         """
         self.last_sync_ori = data
 
     def get_pose3d(self):
         """
-            Returns (list): list with two items
+            Returns (list): `[xyz, ori]` where:
+
+                * xyz ... 3D position given by the list `[x,y,z]`
+                * ori ... orientation as a quaternion a+bi+cj+dk given by the
+                    list `[b,c,d,a]`
         """
         return self.pose3d
 
@@ -341,7 +307,7 @@ class LocalizationByLeastSquares:
                 data is gathered.
 
             Every time the robot travels the distance given by the `window`
-                attribute, a new chunk of trajectory is computed utilizing the
+                attribute, a new chunk of trajectory is computed using the
                 least squares criterion.
 
             The result is then stored to the `post_trajectory` attribute.
