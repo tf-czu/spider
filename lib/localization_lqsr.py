@@ -4,10 +4,52 @@
     Computes trajectory from asynchronously provided GPS, odometry, and IMU
         data.
 
-    Author:
-        Milan Petrík, petrikm@tf.czu.cz
+    Input: two sources of 3D position, asynchronously provided:
 
-    IMPORTANT:
+        * 3D cartesian coordinates [in meters] computed from GPS:
+            This value may be affected by a significnat non-Gaussian error (the
+            correct position can differ by several meters), however, this error
+            is not affected by the distance travelled.
+            Hence, the relative error decreases with when the distance
+            travelled increases and the position is well reliable on long
+            distances.
+            See: LocalizationByLeastSquares.input_gps_xyz()
+
+        * 3D cartesian coordinates [in meters] computed from odometry and IMU:
+            Odometry provides relative changes of the distance travelled [in
+            meters] while IMU provides the orientation of the robot as a
+            quaternion a+bi+cj+dk represented by the list `[b,c,d,a]`.
+            This is in accord with the [ROS standard]
+            (http://wiki.ros.org/tf2/Tutorials/Quaternions), see also
+            osgar/lib/quaternion.py.
+            Both odometry and IMU are affected by errors which are more or less
+            constant in time, however, the longer distance the robot travels,
+            the grater impact these errors have.
+            See: LocalizationByLeastSquares.input_distance_travelled(),
+                LocalizationByLeastSquares.input_orientation()
+
+    Algorithm:
+
+        The initial orientation of the trajectory given by odometry+IMU will
+            generally differ from the orientation of the trajectory given by GPS.
+        Also, the scale of these two trajectories will differ in general.
+
+        The algorithm is based on the idea of computing the trajectory from
+            odometry+IMU and then rotating and scaling it such that it fits best
+            (by the least squares criterium) to the trajectory given by GPS.
+        This approach would work perfectly if the scale error of the odometry
+            and the angle error of the IMU would be perfectly constant ... they are
+            not.
+        The algorithm therefore does not compute the scale and the angle error
+            from the whole input data series but uses a moving window which also
+            allows a computataion of the trajectory in real time.
+
+    Output:
+
+        See `get_pose3d()`.
+        
+    Important:
+
         It is expected, that the GPS, odometry, and IMU data are provided
             asynchronously, however, constantly.
         That is, no gaps!
@@ -19,40 +61,9 @@
         Hence, the algorithm will probably behave inpredictibly if, e.g.,
             the GPS data are not provided for a longer period.
 
-    Algorithm:
+    Author:
 
-        There are the following observations:
-            * GPS has a significant non-Gaussian error and the correct position
-                can differ by several meters, however, GPS also provides data that
-                are well reliable on long distances.
-            * Odometry provides the distance travelled which differs from the
-                real distance travelled by a scale factor.
-            * IMU gives an orientation which is, however, relative. Hence its
-                initial orientation may differ from the real initial orientation
-                significantly.
-
-        The algorithm is based on the idea of computing the trajectory from
-            odometry and IMU and then rotating and scaling it such that it fits
-            best (the least squares method) to the trajectory given by GPS.
-        This approach would work perfectly if the scale error of the odometry
-            and the angle error of the IMU would be constant ... they are not.
-        The algorithm therefore does not compute the scale and the angle error
-            from the whole input data series but uses a moving window.
-        This also allows a computat,ion of the trajectory in real time.
-                                   ,
-    Contents:                      ,
-
-        * `SyncGpsOdo`: named tuple representing one item in the list of
-            synchronized GPS and odometry positions
-        * `draw_trajectories()`: draws a plot of several trajectories using the
-            matplotlib module
-        * `compute_rotation_and_scale()`: utilizing the least squares method,
-            computes rotation angle and scale coefficient between two series of
-            positions (trajectories) measured by GPS and odometry
-        * `rotate_and_scale()`: rotates and scales a vector utilizing the
-            quaternion arithmetic
-        * `LeastSquaresLocalization`: the main class inherited from
-            osgar.node.Node that computes the trajectory
+        Milan Petrík (petrikm@tf.czu.cz)
 """
 
 import math, copy
@@ -61,8 +72,8 @@ from collections import namedtuple
 import osgar.lib.quaternion as quaternion
 
 # SyncGpsOdo ... named tuple representing one item in the list of synchronized
-#   GPS and odometry positions
-# Each tuple contains:
+#   positions obtained from GPS and odometry+IMU
+#
 #   * time (datetime.timedelta): (absolute) time (note that the time in seconds
 #       can be obtained by calling `time.total_seconds()`)
 #   * gps (list of float): [x,y,z] position obtained from GPS [meters]
@@ -70,6 +81,7 @@ import osgar.lib.quaternion as quaternion
 #   * ori (list of float): orientation obtained from IMU as a quaternion
 #       a+bi+cj+dk represented by the list [b,c,d,a]
 #   * tra (float): distance travelled [meters]
+
 SyncGpsOdo = namedtuple("SyncGpsOdo", "time gps odo ori tra")
 
 def compute_rotation_and_scale(sync_gps_odo,
