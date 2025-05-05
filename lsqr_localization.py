@@ -39,6 +39,10 @@ class LeastSquaresLocalization(Node):
         # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
 
+        # for debugging
+        self.plot_gps = []
+        self.plot_pose3d = []
+
     def on_nmea(self, data):
         """
             Process next data obtained from GPS.
@@ -65,6 +69,8 @@ class LeastSquaresLocalization(Node):
         self.nmea_tracker.input_nmea(data)
         xyz = self.nmea_tracker.get_xyz()
         self.loc.input_gps_xyz(self.time, xyz)
+        # for debugging
+        self.plot_gps.append(xyz)
 
     def on_pose2d(self, data):
         """
@@ -90,6 +96,11 @@ class LeastSquaresLocalization(Node):
                     distance = -distance
             self.last_xy = xy
             self.loc.input_distance_travelled(self.time, distance)
+            # output
+            pose3d = self.loc.get_pose3d()
+            if pose3d is not None:
+                self.publish('pose3d', pose3d)
+                self.plot_pose3d.append(pose3d[0])
 
     def on_encoders(self, data):
         """
@@ -103,6 +114,11 @@ class LeastSquaresLocalization(Node):
         if self.odometry_from == "encoders":
             distance = self.encoders_scale * ((data[0] + data[1]) / 2)
             self.loc.input_distance_travelled(self.time, distance)
+            # output
+            pose3d = self.loc.get_pose3d()
+            if pose3d is not None:
+                self.publish('pose3d', pose3d)
+                self.plot_pose3d.append(pose3d[0])
 
     def on_orientation(self, data):
         """
@@ -114,12 +130,28 @@ class LeastSquaresLocalization(Node):
         """
         self.loc.input_orientation(self.time, data)
 
-    def get_pose3d(self):
-        """
-            Returns (list): list with two items
-        """
-        return self.loc.get_pose3d()
-
     def draw(self):
-        self.loc.draw()
+        import matplotlib.pyplot as plt
+        trajectories = [
+                {
+                    "trajectory": self.plot_gps,
+                    "options": "c.",
+                    "label": "GPS",
+                },
+                {
+                    "trajectory": self.plot_pose3d,
+                    "options": "b.",
+                    "label": "pose3d",
+                },
+            ]
+        for trajectory in trajectories:
+            list_of_x = []
+            list_of_y = []
+            for pos in trajectory["trajectory"]:
+                list_of_x.append(pos[0])
+                list_of_y.append(pos[1])
+            plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
+        plt.legend()
+        plt.axis('equal')
+        plt.show()
 

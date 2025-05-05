@@ -275,12 +275,6 @@ class LocalizationByLeastSquares:
                 #if self.post_window is not None:
                 #    self.compute_post_process_trajectory()
 
-
-        pose3d = self.get_pose3d()
-        if pose3d is not None:
-            #self.publish('pose3d', pose3d)
-            self.plot_pose3d.append(pose3d[0])
-
     def input_orientation(self, time, data):
         """
             Process next orientation quaternion obtained from IMU.
