@@ -88,7 +88,7 @@ def compute_rotation_and_scale(sync_gps_odo,
                                or_g = [0, 0, 0],
                                or_o = [0, 0, 0],
                                first_index = 0,
-                               period = None,
+                               length = None,
                                prune = 1):
     """
         Computes rotation and scale between two series of positions
@@ -107,10 +107,10 @@ def compute_rotation_and_scale(sync_gps_odo,
                 origin of the positions given by GPS
             or_o (list of float): list of 3 (or 2) values representing the
                 origin of the positions given by odometry+IMU
-            first_index (int): index in `sync_gps_odo`; see the `period`
+            first_index (int): index in `sync_gps_odo`; see the `length`
                 parameter
-            period (int): length of the interval in `sync_gps_odo`;
-                if both `first_index` and `period` are provided then the
+            length (int): length of the interval in `sync_gps_odo`;
+                if both `first_index` and `length` are provided then the
                 rotation and scale are computed only from the corresponding
                 part of the list given by `sync_gps_odo`
             prune (int): pruning of the input data;
@@ -127,9 +127,9 @@ def compute_rotation_and_scale(sync_gps_odo,
             * scale coefficient
     """
     n = len(sync_gps_odo)
-    if period is None:
-        period = n
-    upper_border = first_index + period
+    if length is None:
+        length = n
+    upper_border = first_index + length
     if upper_border > n:
         upper_border = n
     A = 0
@@ -367,7 +367,7 @@ class LocalizationByLeastSquares:
                                                        or_g = or_g,
                                                        or_o = or_o,
                                                        first_index = first_index,
-                                                       period = last_index - first_index + 1)
+                                                       length = last_index - first_index + 1)
             for k in range(first_index, last_index + 1):
                 s = self.sync_gps_odo[k]
                 new_xyz = rotate_and_scale(qua, sca, s.odo, or_o, or_g)
@@ -393,7 +393,7 @@ class LocalizationByLeastSquares:
 #                               or_g = [0, 0, 0],
 #                               or_o = [0, 0, 0],
 #                               first_index = 0,
-#                               period = None,
+#                               length = None,
 #                               prune = 1):
 #def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
 
@@ -422,7 +422,7 @@ class LocalizationByLeastSquares:
                                                            or_o = or_o,
                                                            or_g = or_g,
                                                            first_index = 0,
-                                                           period = len_sync_gps_odo)
+                                                           length = len_sync_gps_odo)
                 for k in range(len_sync_gps_odo):
                     s = self.sync_gps_odo[k]
                     new_xyz = rotate_and_scale(qua, sca, s.odo, or_o, or_g)
@@ -435,7 +435,7 @@ class LocalizationByLeastSquares:
                                                                        or_o = [0.0, 0.0, 0.0],
                                                                        or_g = [0.0, 0.0, 0.0],
                                                                        first_index = 0,
-                                                                       period = len_sync_gps_odo)
+                                                                       length = len_sync_gps_odo)
                 input_origin  = [0.0, 0.0, 0.0]
                 output_origin = [0.0, 0.0, 0.0]
                 if all(var is not None for var in [qua_est, sca_est, self.initial_rotation, self.initial_scale]):
@@ -488,7 +488,7 @@ class LocalizationByLeastSquares:
                                                        or_g = or_g,
                                                        or_o = or_o,
                                                        first_index = self.window_first_index,
-                                                       period = last_index - self.window_first_index + 1,
+                                                       length = last_index - self.window_first_index + 1,
                                                        prune = self.prune)
             new_xyz = rotate_and_scale(qua, sca, last.odo, or_o, or_g)
             new_ori = quaternion.multiply(qua, last.ori)
