@@ -42,6 +42,7 @@ class LeastSquaresLocalization(Node):
         # for debugging
         self.plot_gps = []
         self.plot_pose3d = []
+        self.counter_of_odometry_signal = 0
 
     def on_nmea(self, data):
         """
@@ -111,6 +112,9 @@ class LeastSquaresLocalization(Node):
                     distance travelled by the left and right (or vice versa?)
                     wheel of the robot
         """
+        self.counter_of_odometry_signal += 1
+        if self.counter_of_odometry_signal % 1000 == 0:
+            print(self.counter_of_odometry_signal)
         if self.odometry_from == "encoders":
             distance = self.encoders_scale * ((data[0] + data[1]) / 2)
             self.loc.input_distance_travelled(self.time, distance)
