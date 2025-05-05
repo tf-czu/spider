@@ -36,7 +36,7 @@
 
         The algorithm is based on the idea of computing the trajectory from
             odometry+IMU and then rotating and scaling it such that it fits best
-            (by the least squares criterium) to the trajectory given by GPS.
+            (by the least squares criterion) to the trajectory given by GPS.
         This approach would work perfectly if the scale error of the odometry
             and the angle error of the IMU would be perfectly constant ... they are
             not.
@@ -91,51 +91,39 @@ def compute_rotation_and_scale(sync_gps_odo,
                                period = None,
                                prune = 1):
     """
-        Computes rotation angle and scale coefficient between two series of
-            positions (trajectories) measured by GPS and odometry.
+        Computes rotation and scale between two series of positions
+            (trajectories) measured by GPS and odometry+IMU.
 
         The algorithm utilizes the least squares criterion.
 
-        The function returns two values:
-            * rotation ... the 2x2 matrix of rotation
-            * scale ... the scale coefficient
+        Although 3D positions are required on the input, only x and y
+            coordinates are involved in the algorithm; the z coordinate is
+            ignored.
 
-        To fit the odometry trajectory to the GPS trajectory, the odometry
-            position needs to be multipled by `rotation` and by `scale`;
-            see `fit_trajectory()`.
-
-        Only a part of the trajectories can be involved.
-        For such a purpose, utilize the parameters `first_index` and `period`.
-            
         Args:
-            sync_gps_odo (list): list of GPS and odometry positions synchronized
-                in time;
-                each item of the list is a 3-tuple containing:
-
-                * timestamp (datetime.timedelta): (absolute) time
-                    (time in seconds can be obtained by calling
-                    `time.total_seconds()`)
-                * gps (list): array of 3 (or 2) values representing a position
-                * odo (list): array of 3 (or 2) values representing a position
-            or_g (list): GPS origin; array of 3 (or 2) values representing a
-                position
-            or_o (list): odometry origin; array of 3 (or 2) values representing
-                a position
-            first_index (int): index in `sync_gps_odo` from which the scale and
-                rotation is to be computed
-            period (int): length of the interval in `sync_gps_odo` from which
-                the scale and rotation is to be computed
+            sync_gps_odo (list of SyncGpsOdo): list of positions from GPS and
+                odometry+IMU synchronized in time;
+            or_g (list of float): list of 3 (or 2) values representing the
+                origin of the positions given by GPS
+            or_o (list of float): list of 3 (or 2) values representing the
+                origin of the positions given by odometry+IMU
+            first_index (int): index in `sync_gps_odo`; see the `period`
+                parameter
+            period (int): length of the interval in `sync_gps_odo`;
+                if both `first_index` and `period` are provided then the
+                rotation and scale are computed only from the corresponding
+                part of the list given by `sync_gps_odo`
             prune (int): pruning of the input data;
                 If `prune == n` then only every n-th item of `sync_gps_odo` is
-                involved.
+                involved when computing the rotation and scale.
                 This parameter has been implemented to speed up the
                 computation.
                 The dafault value `1` means that *every* item of `sync_gps_odo`
                 is involved.
 
-        Returns (list of list of float, list of float, float):
-            * 2x2 array representing the matrix of rotation
-            * list of 4 values representing the quaternion
+        Returns (list of float, float):
+
+            * quaternion as a list of 4 values representing the rotation
             * scale coefficient
     """
     n = len(sync_gps_odo)
@@ -155,7 +143,7 @@ def compute_rotation_and_scale(sync_gps_odo,
             C += (s.gps[0] - or_g[0])*(s.odo[1] - or_o[1]) - (s.gps[1] - or_g[1])*(s.odo[0] - or_o[0])
     BB_CC = B*B + C*C
     if abs(A) < 1E-07 or abs(BB_CC) < 1E-07:
-        return None, None, None
+        return None, None
     sqrtBC = math.sqrt(BB_CC)
     scale = sqrtBC / A
     sin_angle = -C / sqrtBC
@@ -164,9 +152,9 @@ def compute_rotation_and_scale(sync_gps_odo,
     cos_angle_half = math.sqrt((1 + cos_angle) / 2)
     if sin_angle < 0:
         cos_angle_half *= -1
-    rotation_matrix = [[cos_angle, -sin_angle], [sin_angle, cos_angle]]
+    #rotation_matrix = [[cos_angle, -sin_angle], [sin_angle, cos_angle]]
     rotation_quaternion = [0.0, 0.0, sin_angle_half, cos_angle_half]
-    return rotation_matrix, rotation_quaternion, scale
+    return rotation_quaternion, scale
 
 def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
     """
@@ -353,7 +341,7 @@ class LocalizationByLeastSquares:
 
             Every time the robot travels the distance given by the `window`
                 attribute, a new chunk of trajectory is computed utilizing the
-                least squares criterium.
+                least squares criterion.
 
             The result is then stored to the `post_trajectory` attribute.
         """
@@ -375,7 +363,7 @@ class LocalizationByLeastSquares:
                 or_g = s.gps
             else:
                 or_g, __ = self.post_trajectory[first_index]
-            rot, qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
+            qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
                                                        or_g = or_g,
                                                        or_o = or_o,
                                                        first_index = first_index,
@@ -428,10 +416,9 @@ class LocalizationByLeastSquares:
                 #or_o = or_g = first.odo
                 #or_o = first.odo
                 #or_g = first.gps
-                # TODO zrusit rot
                 or_o = [0.0, 0.0, 0.0]
                 or_g = [0.0, 0.0, 0.0]
-                rot, qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
+                qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
                                                            or_o = or_o,
                                                            or_g = or_g,
                                                            first_index = 0,
@@ -444,7 +431,7 @@ class LocalizationByLeastSquares:
             else:
                 # rotation and scale estimated by GPS when the full length
                 # window has not been reached, yet
-                rot_est, qua_est, sca_est = compute_rotation_and_scale(self.sync_gps_odo,
+                qua_est, sca_est = compute_rotation_and_scale(self.sync_gps_odo,
                                                                        or_o = [0.0, 0.0, 0.0],
                                                                        or_g = [0.0, 0.0, 0.0],
                                                                        first_index = 0,
@@ -497,7 +484,7 @@ class LocalizationByLeastSquares:
             or_o = first.odo
             xyz, ori = self.trajectory[self.window_first_index]
             or_g = xyz
-            rot, qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
+            qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
                                                        or_g = or_g,
                                                        or_o = or_o,
                                                        first_index = self.window_first_index,
