@@ -51,9 +51,6 @@
             positions (trajectories) measured by GPS and odometry
         * `rotate_and_scale()`: rotates and scales a vector utilizing the
             quaternion arithmetic
-        * `NMEATracker`: converts GPS data to Cartesian coordinates
-        * `OdometryTracker`: converts odometry and IMU data to Cartesian
-            coordinates
         * `LeastSquaresLocalization`: the main class inherited from
             osgar.node.Node that computes the trajectory
 """
@@ -62,8 +59,6 @@ import math, copy
 from collections import namedtuple
 
 import osgar.lib.quaternion as quaternion
-
-from lib.trackers import NMEATracker, OdometryTracker
 
 # SyncGpsOdo ... named tuple representing one item in the list of synchronized
 #   GPS and odometry positions
@@ -223,11 +218,6 @@ class LocalizationByLeastSquares:
             * `initial_window` (float): initial length (in meters) of the
                 trajectory on which the trajectory is estimated by `initial_scale`
                 and `initial_rotation`
-
-            * `nmea_tracker` (NMEATracker): tracks trajectory given by GPS
-                input
-            * `odo_tracker_pose2d` (OdometryTracker): tracks trajectory given
-                by odometry and IMU input
     """
 
     def __init__(self, options):
