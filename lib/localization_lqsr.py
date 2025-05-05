@@ -457,10 +457,7 @@ class LocalizationByLeastSquares:
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
                     #       credibility of qua_est, sca_est
-                    if self.distance_travelled > self.initial_window:
-                        weight = 1.0
-                    else:
-                        weight = self.distance_travelled / self.initial_window
+                    weight = min(abs(self.distance_travelled) / self.initial_window, 1.0)
                     qua = quaternion.slerp(self.initial_rotation, qua_est, weight)
                     sca = (1 - weight)*self.initial_scale + weight*sca_est
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, input_origin, output_origin)
