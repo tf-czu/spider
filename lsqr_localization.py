@@ -34,8 +34,8 @@ class LeastSquaresLocalization(Node):
         self.nmea_tracker = NMEATracker()
 
         # choose the source of odometry
-        self.odometry_from = "pose2d"
-        #self.odometry_from = "encoders"
+        #self.odometry_from = "pose2d"
+        self.odometry_from = "encoders"
         # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
 

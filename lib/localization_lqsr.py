@@ -65,15 +65,16 @@ import osgar.lib.quaternion as quaternion
 
 from lib.trackers import NMEATracker, OdometryTracker
 
-# SyncGpsOdo
-# ... named tuple representing one item in the list of synchronized GPS and
-# odometry positions
+# SyncGpsOdo ... named tuple representing one item in the list of synchronized
+#   GPS and odometry positions
 # Each tuple contains:
-#   * time (datetime.timedelta): (absolute) time (time in seconds can be
-#   obtained by calling `time.total_seconds()`)
-#   * gps (numpy.array): array of 3 (or 2) values representing a position
-#   * odo (numpy.array): array of 3 (or 2) values representing a position
-#   * tra (float): distance travelled
+#   * time (datetime.timedelta): (absolute) time (note that the time in seconds
+#       can be obtained by calling `time.total_seconds()`)
+#   * gps (list of float): [x,y,z] position obtained from GPS [meters]
+#   * odo (list of float): [x,y,z] position obtained from odometry+IMU [meters]
+#   * ori (list of float): orientation obtained from IMU as a quaternion
+#       a+bi+cj+dk represented by the list [b,c,d,a]
+#   * tra (float): distance travelled [meters]
 SyncGpsOdo = namedtuple("SyncGpsOdo", "time gps odo ori tra")
 
 def compute_rotation_and_scale(sync_gps_odo,
