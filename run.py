@@ -17,6 +17,7 @@ def main():
     arg_parser.add_argument("--init-win", help = "initial window [m]")
     arg_parser.add_argument("--init-sca", help = "initial scale")
     arg_parser.add_argument("--init-ang", help = "initial angle [deg]")
+    arg_parser.add_argument("--enc-sca", help = "encoder scale")
     args = arg_parser.parse_args()
     path_log = args.input
 
@@ -26,6 +27,7 @@ def main():
     initial_scale = 1
     initial_window = 1
     initial_angle = -75
+    enc_scale = 0.00218 # odometry scale for spider
 
     if args.w:
         window = float(args.w)
@@ -42,12 +44,13 @@ def main():
 
     bus = Bus(MagicMock())
     config = {
-        'window':          window,
-        'post_window':     post_window,
-        'prune':           prune,
-        'initial_scale':   initial_scale,
-        'initial_window':  initial_window,
-        'initial_angle':   initial_angle,
+        'window':           window,
+        'post_window':      post_window,
+        'prune':            prune,
+        'initial_scale':    initial_scale,
+        'initial_window':   initial_window,
+        'initial_angle':    initial_angle,
+        'enc_scale':        enc_scale,
     }
 
     id_ori = lookup_stream_id(path_log, "imu.orientation")

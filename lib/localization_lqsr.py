@@ -304,12 +304,8 @@ class LocalizationByLeastSquares:
             Process next data obtained from odometry.
 
             Args:
-                distance (float): distance travelled, relative from the last
-                    measurement;
-                    preferably in meters but the unit is not important as the
-                    result is being synchronized with GPS;
-                    moreover, it is expected that this value is heavily
-                    scale-error prone
+                distance (float): distance travelled in meters; relative from
+                    the last measurement;
         """
         self.distance_travelled_raw += distance
         if self.distance_travelled_scale is not None:
@@ -325,7 +321,11 @@ class LocalizationByLeastSquares:
                                ori = copy.copy(self.last_sync_ori),
                                tra = self.distance_travelled)
                 self.sync_gps_odo.append(s)
-                self.compute_trajectory()
+                #self.compute_trajectory()
+                #if self.post_window is not None:
+                #    self.compute_post_process_trajectory()
+
+
         pose3d = self.get_pose3d()
         if pose3d is not None:
             #self.publish('pose3d', pose3d)
@@ -422,6 +422,7 @@ class LocalizationByLeastSquares:
         # Post-processed Trajectory
         #if self.post_window is not None:
         #    self.compute_post_process_trajectory()
+        #return
         # Real-time Trajectory
         len_trajectory = len(self.trajectory)
         if len_trajectory == 0:

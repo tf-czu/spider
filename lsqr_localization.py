@@ -23,9 +23,12 @@ class LeastSquaresLocalization(Node):
                 "prune": config.get('prune', 1),
                 "initial window": config.get('initial_window', 1.0),
                 "initial scale": config.get('initial_scale', 1.0),
-                "initial angle": config.get('initial_angle', -75)   
+                "initial angle": config.get('initial_angle', -75),
             }
         self.loc = LocalizationByLeastSquares(options)
+
+        self.encoders_scale = config.get('enc_scale', 0.00218)
+        assert self.encoders_scale is not None
 
         # tracker to convert GPS data to cartesian coordinates
         self.nmea_tracker = NMEATracker()
@@ -98,7 +101,7 @@ class LeastSquaresLocalization(Node):
                     wheel of the robot
         """
         if self.odometry_from == "encoders":
-            distance = (data[0] + data[1]) / 2
+            distance = self.encoders_scale * ((data[0] + data[1]) / 2)
             self.loc.input_distance_travelled(self.time, distance)
 
     def on_orientation(self, data):
