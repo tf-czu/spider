@@ -13,7 +13,7 @@
             Hence, the relative error decreases with when the distance
             travelled increases and the position is well reliable on long
             distances.
-            See: LocalizationByLeastSquares.input_gps_xyz()
+            See: TrackerLeastSquares.input_gps_xyz()
 
         * 3D cartesian coordinates [in meters] computed from odometry and IMU:
             Odometry provides relative changes of the distance travelled [in
@@ -25,12 +25,12 @@
             Both odometry and IMU are affected by errors which are more or less
             constant in time, however, the longer distance the robot travels,
             the grater impact these errors have.
-            See: LocalizationByLeastSquares.input_distance_travelled(),
-                LocalizationByLeastSquares.input_orientation()
+            See: TrackerLeastSquares.input_distance_travelled(),
+                TrackerLeastSquares.input_orientation()
 
     Output:
 
-        See: LeastSquaresLocalization.get_pose3d()
+        See: TrackerLeastSquares.get_pose3d()
         
     Algorithm:
 
@@ -185,7 +185,7 @@ def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
     result = [scale * rotated[i] + output_origin[i] for i in range(3)]
     return result
 
-class LocalizationByLeastSquares:
+class TrackerLeastSquares:
     """
         Computes trajectory from asynchronously provided GPS, odometry, and IMU
             data using the least squares criterion.

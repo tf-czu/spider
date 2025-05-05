@@ -6,7 +6,7 @@ from osgar.node import Node
 
 from osgar.lib.route import Convertor as GPSConvertor
 
-from lib.localization_lqsr import LocalizationByLeastSquares
+from lib.tracker_lqsr import TrackerLeastSquares
 
 class LeastSquaresLocalization(Node):
     """
@@ -27,7 +27,7 @@ class LeastSquaresLocalization(Node):
                 "initial scale": config.get('initial_scale', 1.0),
                 "initial angle": config.get('initial_angle', -75),
             }
-        self.loc = LocalizationByLeastSquares(options)
+        self.tracker = TrackerLeastSquares(options)
 
         self.encoders_scale = config.get('enc_scale', 0.00218)
         assert self.encoders_scale is not None
@@ -68,7 +68,7 @@ class LeastSquaresLocalization(Node):
             self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
             self.gps_alt_0 = data["alt"]
             gps_xyz = [0.0, 0.0, 0.0]
-        self.loc.input_gps_xyz(self.time, gps_xyz)
+        self.tracker.input_gps_xyz(self.time, gps_xyz)
         # for debugging
         self.plot_gps.append(gps_xyz)
 
@@ -95,9 +95,9 @@ class LeastSquaresLocalization(Node):
                 if direction < 0:
                     distance = -distance
             self.last_xy = xy
-            self.loc.input_distance_travelled(self.time, distance)
+            self.tracker.input_distance_travelled(self.time, distance)
             # output
-            pose3d = self.loc.get_pose3d()
+            pose3d = self.tracker.get_pose3d()
             if pose3d is not None:
                 self.publish('pose3d', pose3d)
                 self.plot_pose3d.append(pose3d[0])
@@ -116,9 +116,9 @@ class LeastSquaresLocalization(Node):
             print(self.counter_of_odometry_signal)
         if self.odometry_from == "encoders":
             distance = self.encoders_scale * ((data[0] + data[1]) / 2)
-            self.loc.input_distance_travelled(self.time, distance)
+            self.tracker.input_distance_travelled(self.time, distance)
             # output
-            pose3d = self.loc.get_pose3d()
+            pose3d = self.tracker.get_pose3d()
             if pose3d is not None:
                 self.publish('pose3d', pose3d)
                 self.plot_pose3d.append(pose3d[0])
@@ -131,7 +131,7 @@ class LeastSquaresLocalization(Node):
                 data (list of float): list of four values representing a
                     quaternion that represents the orientation of the robot
         """
-        self.loc.input_orientation(self.time, data)
+        self.tracker.input_orientation(self.time, data)
 
     def draw(self):
         import matplotlib.pyplot as plt
