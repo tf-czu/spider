@@ -71,6 +71,8 @@ from collections import namedtuple
 
 import osgar.lib.quaternion as quaternion
 
+from lib.tracker import Tracker
+
 # SyncGpsOdo ... named tuple representing one item in the list of synchronized
 #   positions obtained from GPS and odometry+IMU
 #
@@ -185,7 +187,7 @@ def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
     result = [scale * rotated[i] + output_origin[i] for i in range(3)]
     return result
 
-class TrackerLeastSquares:
+class TrackerLeastSquares(Tracker):
     """
         Computes trajectory from asynchronously provided GPS, odometry, and IMU
             data using the least squares criterion.
