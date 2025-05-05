@@ -28,6 +28,10 @@
             See: LocalizationByLeastSquares.input_distance_travelled(),
                 LocalizationByLeastSquares.input_orientation()
 
+    Output:
+
+        See: LeastSquaresLocalization.get_pose3d()
+        
     Algorithm:
 
         The initial orientation of the trajectory given by odometry+IMU will
@@ -44,10 +48,6 @@
             from the whole input data series but uses a moving window which also
             allows a computataion of the trajectory in real time.
 
-    Output:
-
-        See `get_pose3d()`.
-        
     Important:
 
         It is expected, that the GPS, odometry, and IMU data are provided
@@ -164,14 +164,15 @@ def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
             then it is rotated and scaled by the given quaternion and scale coefficient,
             then it is shifted to `output_origin`.
 
-        The rotatio is performed around the axis given by the vector (0, 0, 1);
+        The rotation is performed around the axis given by the vector (0, 0, 1);
             hence it is actually a 2D rotation in x and y.
 
         Args:
-            rotation (list of float): a quaternion representing the rotation; a
-                list of four values
+            rotation (list of float): a quaternion representing the rotation;
+                a quaternion a+bi+cj+dk is expected to be given by the list
+                `[b,c,d,a]`.
             scale (float): scale coefficient; should be a positive number
-            vector (list of float): input 3D vector
+            vector (list of float): input 3D vector; `[x,y,z]`
             input_origin (list of float): 3D vector representing the origin of
                 the input vector
             output_origin (list of float): 3D vector representing the origin of
