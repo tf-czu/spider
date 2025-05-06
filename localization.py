@@ -6,7 +6,7 @@ from osgar.node import Node
 
 from osgar.lib.route import Convertor as GPSConvertor
 
-from lib.tracker_lqsr import TrackerLeastSquares
+from lib.tracker_lsqr import TrackerLeastSquares
 
 class Localization(Node):
     """
