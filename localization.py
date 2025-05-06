@@ -43,8 +43,9 @@ class Localization(Node):
         self.gps_converter = None
         self.gps_alt_0 = None
 
-        # output
+        # output (these values are mainly for unit-testing)
         self.pose3d = None
+        self.gps_xyz = None
 
         # for debugging
         self.plot_gps = []
@@ -67,14 +68,14 @@ class Localization(Node):
         if self.gps_converter:
             x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
             z = data["alt"] - self.gps_alt_0
-            gps_xyz = [x, y, z]
+            self.gps_xyz = [x, y, z]
         else:
             self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
             self.gps_alt_0 = data["alt"]
-            gps_xyz = [0.0, 0.0, 0.0]
-        self.tracker.input_gps_xyz(self.time, gps_xyz)
+            self.gps_xyz = [0.0, 0.0, 0.0]
+        self.tracker.input_gps_xyz(self.time, self.gps_xyz)
         # for debugging
-        self.plot_gps.append(gps_xyz)
+        self.plot_gps.append(self.gps_xyz)
 
     def on_pose2d(self, data):
         """
@@ -130,7 +131,6 @@ class Localization(Node):
         self.tracker.input_distance_travelled(self.time, distance)
         # output
         self.pose3d = self.tracker.get_pose3d()
-        print("...", self.pose3d)
         if self.pose3d is not None:
             self.publish('pose3d', self.pose3d)
             self.plot_pose3d.append(self.pose3d[0])
