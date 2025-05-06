@@ -34,13 +34,17 @@ class Localization(Node):
 
         # choose the source of odometry
         #self.odometry_from = "pose2d"
-        self.odometry_from = "encoders"
+        #self.odometry_from = "encoders"
+        self.odometry_from = None
         # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
 
         # converting GPS to cartesian coordinates
         self.gps_converter = None
         self.gps_alt_0 = None
+
+        # output
+        self.pose3d = None
 
         # for debugging
         self.plot_gps = []
@@ -83,24 +87,27 @@ class Localization(Node):
                     * `y` ... y-coordinate in [mm] originating from odometry
                     * `heading` ... angle (?)
         """
-        if self.odometry_from == "pose2d":
-            xy = [data[i] / 1000.0 for i in range(2)] # convert [mm] to [m]
-            heading = math.radians(data[2] / 100.0)
-            if self.last_xy is None:
-                distance = 0.0
-            else:
-                difference = [xy[i] - self.last_xy[i] for i in range(len(xy))]
-                distance = math.sqrt(sum(value**2 for value in difference))
-                direction = (difference[0] * math.cos(heading) + difference[1] * math.sin(heading))
-                if direction < 0:
-                    distance = -distance
-            self.last_xy = xy
-            self.tracker.input_distance_travelled(self.time, distance)
-            # output
-            pose3d = self.tracker.get_pose3d()
-            if pose3d is not None:
-                self.publish('pose3d', pose3d)
-                self.plot_pose3d.append(pose3d[0])
+        if self.odometry_from is None:
+            self.odometry_from = "pose2d"
+        assert self.odometry_from == "pose2d"
+        #
+        xy = [data[i] / 1000.0 for i in range(2)] # convert [mm] to [m]
+        heading = math.radians(data[2] / 100.0)
+        if self.last_xy is None:
+            distance = 0.0
+        else:
+            difference = [xy[i] - self.last_xy[i] for i in range(len(xy))]
+            distance = math.sqrt(sum(value**2 for value in difference))
+            direction = (difference[0] * math.cos(heading) + difference[1] * math.sin(heading))
+            if direction < 0:
+                distance = -distance
+        self.last_xy = xy
+        self.tracker.input_distance_travelled(self.time, distance)
+        # output
+        self.pose3d = self.tracker.get_pose3d()
+        if self.pose3d is not None:
+            self.publish('pose3d', self.pose3d)
+            self.plot_pose3d.append(self.pose3d[0])
 
     def on_encoders(self, data):
         """
@@ -114,14 +121,19 @@ class Localization(Node):
         self.counter_of_odometry_signal += 1
         if self.counter_of_odometry_signal % 1000 == 0:
             print(self.counter_of_odometry_signal)
-        if self.odometry_from == "encoders":
-            distance = self.encoders_scale * ((data[0] + data[1]) / 2)
-            self.tracker.input_distance_travelled(self.time, distance)
-            # output
-            pose3d = self.tracker.get_pose3d()
-            if pose3d is not None:
-                self.publish('pose3d', pose3d)
-                self.plot_pose3d.append(pose3d[0])
+        #
+        if self.odometry_from is None:
+            self.odometry_from = "encoders"
+        assert self.odometry_from == "encoders"
+        #
+        distance = self.encoders_scale * ((data[0] + data[1]) / 2)
+        self.tracker.input_distance_travelled(self.time, distance)
+        # output
+        self.pose3d = self.tracker.get_pose3d()
+        print("...", self.pose3d)
+        if self.pose3d is not None:
+            self.publish('pose3d', self.pose3d)
+            self.plot_pose3d.append(self.pose3d[0])
 
     def on_orientation(self, data):
         """
