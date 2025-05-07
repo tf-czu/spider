@@ -39,15 +39,13 @@ class Localization(Node):
             self.on_the_way = False
         self.distance_travelled = 0.0
 
-        self.encoders_scale = config.get('enc_scale', 0.00218)
-        assert self.encoders_scale is not None
-
-        # choose the source of odometry
-        #self.odometry_from = "pose2d"
-        #self.odometry_from = "encoders"
+        # the source of odometry
         self.odometry_from = None
         # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
+        # scale coefficient to convert odometry ticks to meters, if odometry_from == "encoders"
+        # (should be 0.00218 for spider robot)
+        self.encoders_scale = config.get('enc scale', None)
 
         # converting GPS to cartesian coordinates
         self.gps_converter = None
@@ -158,6 +156,7 @@ class Localization(Node):
         if self.odometry_from is None:
             self.odometry_from = "encoders"
         assert self.odometry_from == "encoders"
+        assert self.encoders_scale is not None
         # for debugging
         if self.verbose:
             self.counter_of_odometry_signal += 1
