@@ -295,7 +295,13 @@ class TrackerLeastSquares(Tracker):
                 * ori ... orientation as a quaternion a+bi+cj+dk given by the
                     list `[b,c,d,a]`
         """
-        return self.pose3d
+        return copy.copy(self.pose3d)
+
+    def get_odo_xyz(self):
+        """
+            Returns (list): `[x,y,z]` coordinates derived from odometry and IMU
+        """
+        return copy.copy(self.last_sync_odo)
 
     def compute_post_process_trajectory(self):
         """
@@ -459,6 +465,7 @@ class TrackerLeastSquares(Tracker):
             self.trajectory.append(self.pose3d)
 
     def draw(self):
+        # TODO to be removed
         import matplotlib.pyplot as plt
 
         #print("len:", len(self.plot_xyz_by_encoders))
