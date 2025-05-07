@@ -49,6 +49,7 @@ class Localization(Node):
 
         # for debugging
         self.plot_gps = []
+        self.plot_odo = []
         self.plot_pose3d = []
         self.counter_of_odometry_signal = 0
 
@@ -75,7 +76,8 @@ class Localization(Node):
             self.gps_xyz = [0.0, 0.0, 0.0]
         self.tracker.input_gps_xyz(self.time, self.gps_xyz)
         # for debugging
-        self.plot_gps.append(self.gps_xyz)
+        if self.verbose:
+            self.plot_gps.append(self.gps_xyz)
 
     def on_pose2d(self, data):
         """
@@ -91,6 +93,11 @@ class Localization(Node):
         if self.odometry_from is None:
             self.odometry_from = "pose2d"
         assert self.odometry_from == "pose2d"
+        # for debugging
+        if self.verbose:
+            self.counter_of_odometry_signal += 1
+            if self.counter_of_odometry_signal % 1000 == 0:
+                print(self.odometry_from, self.counter_of_odometry_signal)
         #
         xy = [data[i] / 1000.0 for i in range(2)] # convert [mm] to [m]
         heading = math.radians(data[2] / 100.0)
@@ -108,7 +115,11 @@ class Localization(Node):
         self.pose3d = self.tracker.get_pose3d()
         if self.pose3d is not None:
             self.publish('pose3d', self.pose3d)
-            self.plot_pose3d.append(self.pose3d[0])
+        # for debugging
+        if self.verbose:
+            if self.pose3d is not None:
+                self.plot_pose3d.append(self.pose3d[0])
+            self.plot_odo.append(self.tracker.get_odo_xyz())
 
     def on_encoders(self, data):
         """
@@ -119,13 +130,14 @@ class Localization(Node):
                     distance travelled by the left and right (or vice versa?)
                     wheel of the robot
         """
-        self.counter_of_odometry_signal += 1
-        if self.counter_of_odometry_signal % 1000 == 0:
-            print(self.counter_of_odometry_signal)
-        #
         if self.odometry_from is None:
             self.odometry_from = "encoders"
         assert self.odometry_from == "encoders"
+        # for debugging
+        if self.verbose:
+            self.counter_of_odometry_signal += 1
+            if self.counter_of_odometry_signal % 1000 == 0:
+                print(self.odometry_from, self.counter_of_odometry_signal)
         #
         distance = self.encoders_scale * ((data[0] + data[1]) / 2)
         self.tracker.input_distance_travelled(self.time, distance)
@@ -133,7 +145,12 @@ class Localization(Node):
         self.pose3d = self.tracker.get_pose3d()
         if self.pose3d is not None:
             self.publish('pose3d', self.pose3d)
-            self.plot_pose3d.append(self.pose3d[0])
+        # for debugging
+        if self.verbose:
+            if self.pose3d is not None:
+                self.plot_pose3d.append(self.pose3d[0])
+            self.plot_odo.append(self.tracker.get_odo_xyz())
+
 
     def on_orientation(self, data):
         """
@@ -152,6 +169,11 @@ class Localization(Node):
                     "trajectory": self.plot_gps,
                     "options": "c.",
                     "label": "GPS",
+                },
+                {
+                    "trajectory": self.plot_odo,
+                    "options": "y.",
+                    "label": "odometry+IMU",
                 },
                 {
                     "trajectory": self.plot_pose3d,
