@@ -21,11 +21,11 @@
 	      "init":{
             "window": 20,
             "prune": 20,
-            "post_window": 20,
-            "initial_angle": -75,
-            "initial_scale":  1.0,
-            "initial_window": 3.0,
-            "enc_scale": 0.00218,
+            "post window": 20,
+            "initial angle": -75,
+            "initial scale":  1.0,
+            "initial window": 3.0,
+            "enc scale": 0.00218,
             "initial dumb distance": 0.01
           }
       },

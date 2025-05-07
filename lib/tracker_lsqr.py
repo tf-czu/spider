@@ -528,4 +528,3 @@ class TrackerLeastSquares(Tracker):
         plt.axis('equal')
         plt.show()
 
-

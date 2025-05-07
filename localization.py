@@ -21,11 +21,11 @@ class Localization(Node):
 
         options = {
                 "window": config.get('window', 1),
-                "post window": config.get('post_window', None),
+                "post window": config.get('post window', None),
                 "prune": config.get('prune', 1),
-                "initial window": config.get('initial_window', None),
-                "initial scale": config.get('initial_scale', None),
-                "initial angle": config.get('initial_angle', None),
+                "initial window": config.get('initial window', None),
+                "initial scale": config.get('initial scale', None),
+                "initial angle": config.get('initial angle', None),
             }
         self.tracker = TrackerLeastSquares(options)
 
