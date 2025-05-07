@@ -20,20 +20,23 @@ class Localization(Node):
         bus.register('pose3d')
 
         options = {
-                "window": config.get('window', 5),
+                "window": config.get('window', 1),
                 "post window": config.get('post_window', None),
                 "prune": config.get('prune', 1),
-                "initial window": config.get('initial_window', 1.0),
-                "initial scale": config.get('initial_scale', 1.0),
-                "initial angle": config.get('initial_angle', -75),
+                "initial window": config.get('initial_window', None),
+                "initial scale": config.get('initial_scale', None),
+                "initial angle": config.get('initial_angle', None),
             }
         self.tracker = TrackerLeastSquares(options)
 
         # `on_the_way` indicates whether the robot has started moving
         #   ... this serves to filter out initial GPS values which tend to be messy
         #   ... it is set to True after the robot travels at least `initial_dumb_distance`
-        self.on_the_way = False
         self.initial_dumb_distance = config.get('initial dumb distance', None)
+        if self.initial_dumb_distance is None:
+            self.on_the_way = True
+        else:
+            self.on_the_way = False
         self.distance_travelled = 0.0
 
         self.encoders_scale = config.get('enc_scale', 0.00218)
