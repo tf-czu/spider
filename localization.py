@@ -29,6 +29,13 @@ class Localization(Node):
             }
         self.tracker = TrackerLeastSquares(options)
 
+        # `on_the_way` indicates whether the robot has started moving
+        #   ... this serves to filter out initial GPS values which tend to be messy
+        #   ... it is set to True after the robot travels at least `initial_dumb_distance`
+        self.on_the_way = False
+        self.initial_dumb_distance = config.get('initial dumb distance', None)
+        self.distance_travelled = 0.0
+
         self.encoders_scale = config.get('enc_scale', 0.00218)
         assert self.encoders_scale is not None
 
@@ -73,21 +80,22 @@ class Localization(Node):
                         - 4 ... RTK gps - velmi přesné
                         - 5 ... float rtk, asi lepší než 1, ale potenciálně nevyzpytatelné
         """
-        if data["quality"] != 0:
-            assert data["lon_dir"] == "E"
-            assert data["lat_dir"] == "N"
-            if self.gps_converter:
-                x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
-                z = data["alt"] - self.gps_alt_0
-                self.gps_xyz = [x, y, z]
-            else:
-                self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
-                self.gps_alt_0 = data["alt"]
-                self.gps_xyz = [0.0, 0.0, 0.0]
-            self.tracker.input_gps_xyz(self.time, self.gps_xyz)
-            # for debugging
-            if self.verbose:
-                self.plot_gps.append(self.gps_xyz)
+        if self.on_the_way:
+            if data["quality"] != 0:
+                assert data["lon_dir"] == "E"
+                assert data["lat_dir"] == "N"
+                if self.gps_converter:
+                    x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
+                    z = data["alt"] - self.gps_alt_0
+                    self.gps_xyz = [x, y, z]
+                else:
+                    self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
+                    self.gps_alt_0 = data["alt"]
+                    self.gps_xyz = [0.0, 0.0, 0.0]
+                self.tracker.input_gps_xyz(self.time, self.gps_xyz)
+                # for debugging
+                if self.verbose:
+                    self.plot_gps.append(self.gps_xyz)
 
     def on_pose2d(self, data):
         """
@@ -125,6 +133,10 @@ class Localization(Node):
         self.pose3d = self.tracker.get_pose3d()
         if self.pose3d is not None:
             self.publish('pose3d', self.pose3d)
+        # distance travelled
+        self.distance_travelled += distance
+        if not self.on_the_way and abs(self.distance_travelled) > self.initial_dumb_distance:
+            self.on_the_way = True
         # for debugging
         if self.verbose:
             if self.pose3d is not None:
@@ -155,12 +167,16 @@ class Localization(Node):
         self.pose3d = self.tracker.get_pose3d()
         if self.pose3d is not None:
             self.publish('pose3d', self.pose3d)
+        # distance travelled
+        self.distance_travelled += distance
+        if not self.on_the_way and abs(self.distance_travelled) > self.initial_dumb_distance:
+            self.on_the_way = True
+        #print(self.time, distance, self.distance_travelled, self.initial_dumb_distance, self.on_the_way)
         # for debugging
         if self.verbose:
             if self.pose3d is not None:
                 self.plot_pose3d.append(self.pose3d[0])
             self.plot_odo.append(self.tracker.get_odo_xyz())
-
 
     def on_orientation(self, data):
         """

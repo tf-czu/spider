@@ -25,7 +25,8 @@
             "initial_angle": -75,
             "initial_scale":  1.0,
             "initial_window": 3.0,
-            "enc_scale": 0.00218
+            "enc_scale": 0.00218,
+            "initial dumb distance": 0.01
           }
       },
        "oak_d": {
