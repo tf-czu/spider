@@ -32,11 +32,13 @@ class TestLocalization(unittest.TestCase):
         }
         #
         localization = Localization(config, bus.handle('abc'))
+        localization.verbose = False
         localization.on_pose2d([0, 0, 0])
         with self.assertRaises(AssertionError):
             localization.on_encoders([0, 0])
         #
         localization = Localization(config, bus.handle('abc'))
+        localization.verbose = False
         localization.on_encoders([0, 0])
         with self.assertRaises(AssertionError):
             localization.on_pose2d([0, 0, 0])
@@ -53,6 +55,7 @@ class TestLocalization(unittest.TestCase):
             'enc_scale': 0.00218
         }
         localization = Localization(config, bus.handle('abc'))
+        localization.verbose = False
         list_of_nmea = [
                 {'identifier': '$GNGGA', 'lon': 15.00000, 'lon_dir': 'E', 'lat': 50.00000, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
                 {'identifier': '$GNGGA', 'lon': 15.00001, 'lon_dir': 'E', 'lat': 50.00001, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
@@ -131,6 +134,7 @@ class TestLocalization(unittest.TestCase):
             'enc_scale': 0.00218
         }
         localization = Localization(config, bus.handle('abc'))
+        localization.verbose = False
         list_of_nmea = [
                 {'identifier': '$GNGGA', 'lon': 15.00000, 'lon_dir': 'E', 'lat': 50.00000, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
                 {'identifier': '$GNGGA', 'lon': 15.00001, 'lon_dir': 'E', 'lat': 50.00001, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
