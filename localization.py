@@ -63,21 +63,31 @@ class Localization(Node):
                         "identifier", "lon", "lon_dir", "lat", "lat_dir",
                         "utc_time", "quality", "sats", "hdop", "alt",
                         "a_units", "undulation", "u_units", "age", "stn_id"
+
+                    * "quality" ... quality of the GPS signal
+                        (https://receiverhelp.trimble.com/alloy-gnss/en-us/NMEA-0183messages_GGA.html):
+
+                        - 0 ... špatně
+                        - 1 ... obyč gps
+                        - 2 ... lepší gps
+                        - 4 ... RTK gps - velmi přesné
+                        - 5 ... float rtk, asi lepší než 1, ale potenciálně nevyzpytatelné
         """
-        assert data["lon_dir"] == "E"
-        assert data["lat_dir"] == "N"
-        if self.gps_converter:
-            x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
-            z = data["alt"] - self.gps_alt_0
-            self.gps_xyz = [x, y, z]
-        else:
-            self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
-            self.gps_alt_0 = data["alt"]
-            self.gps_xyz = [0.0, 0.0, 0.0]
-        self.tracker.input_gps_xyz(self.time, self.gps_xyz)
-        # for debugging
-        if self.verbose:
-            self.plot_gps.append(self.gps_xyz)
+        if data["quality"] != 0:
+            assert data["lon_dir"] == "E"
+            assert data["lat_dir"] == "N"
+            if self.gps_converter:
+                x, y = self.gps_converter.geo2planar((data["lon"], data["lat"]))
+                z = data["alt"] - self.gps_alt_0
+                self.gps_xyz = [x, y, z]
+            else:
+                self.gps_converter = GPSConvertor((data["lon"], data["lat"]))
+                self.gps_alt_0 = data["alt"]
+                self.gps_xyz = [0.0, 0.0, 0.0]
+            self.tracker.input_gps_xyz(self.time, self.gps_xyz)
+            # for debugging
+            if self.verbose:
+                self.plot_gps.append(self.gps_xyz)
 
     def on_pose2d(self, data):
         """
