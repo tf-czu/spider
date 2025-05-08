@@ -19,6 +19,8 @@
 	      "in": ["nmea_data (poznamka)"],
 	      "out": ["pose3d (poznamka)"],
 	      "init":{
+            "gps_err": [2, 2, 6],
+            "imu_err": [4, 4, 100],
             "window": 20,
             "prune": 20,
             "post window": 20,

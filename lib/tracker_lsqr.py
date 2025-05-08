@@ -277,7 +277,7 @@ class TrackerLeastSquares(Tracker):
                 #if self.post_window is not None:
                 #    self.compute_post_process_trajectory()
 
-    def input_orientation(self, time, data):
+    def input_orientation(self, time, orientation):
         """
             Process next orientation quaternion obtained from IMU.
 
@@ -285,7 +285,7 @@ class TrackerLeastSquares(Tracker):
                 data (list of float): orientation of the robot as a quaternion
                     a+bi+cj+dk given by the list `[b,c,d,a]`
         """
-        self.last_sync_ori = data
+        self.last_sync_ori = orientation
 
     def get_pose3d(self):
         """
