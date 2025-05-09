@@ -318,7 +318,6 @@ class TrackerLeastSquares(Tracker):
             return self.post_trajectory
 
     def compute_trajectory(self):
-        # TODO complete documentation
         """
             Computes in real-time the trajectory of the robot and saves its
                 current position to `pose3d` attribute.
@@ -329,7 +328,29 @@ class TrackerLeastSquares(Tracker):
 
                     - this is characterized by `len(self.trajectory) == 0`
 
+                    - At the beginning, the results given by GPS and
+                      Odometry+IMU may be too imprecise.
+                      Therefore, during this stage, the resulting position and
+                      orientation are given also by `initial_rotation` and
+                      `initial_scale` (if provided) which are parameters given
+                      by the config.
+                      Parameter `weight` is being computed to continuously
+                      interpolate between the position and orientation computed
+                      by GPS+Odometry+IMU and by
+                      initial_rotation+initial_scale.
+
                 2. after the robot travels the distance given by `initial_window`:
+
+                    - this is characterized by `len(self.trajectory) > 0`
+
+                    - Once the length of the distance travelled reaches the
+                      value given by `window`, the resulting trajectory of the
+                      same length is computed and stored to `trajectory`.
+                      From now on, a moving window is used.
+                      Hence, with every new GPS+Odometry+IMU data obtained, the
+                      new resulting position and orientation is computed from
+                      the history of GPS+Odometry+IMU up to the distance
+                      travelled given by `window`.
         """
         # Post-processed Trajectory
         if self.post_window is not None:
@@ -354,27 +375,28 @@ class TrackerLeastSquares(Tracker):
                     new_ori = quaternion.multiply(qua, s.ori)
                     self.trajectory.append([new_xyz, new_ori])
             else:
-                # rotation and scale estimated by GPS when the full length
-                # window has not been reached, yet
-                qua_est, sca_est = compute_rotation_and_scale(self.sync_gps_odo,
+                # rotation and scale estimated by GPS+Odometry+IMU when the
+                # full length window has not been reached, yet
+                # ("goi" stands for GPS+Odometry+IMU)
+                qua_goi, sca_goi = compute_rotation_and_scale(self.sync_gps_odo,
                                                                        or_o = [0.0, 0.0, 0.0],
                                                                        or_g = [0.0, 0.0, 0.0],
                                                                        first_index = 0,
                                                                        length = len_sync_gps_odo)
                 input_origin  = [0.0, 0.0, 0.0]
                 output_origin = [0.0, 0.0, 0.0]
-                if all(var is not None for var in [qua_est, sca_est, self.initial_rotation, self.initial_scale]):
+                if all(var is not None for var in [qua_goi, sca_goi, self.initial_rotation, self.initial_scale]):
                     # Estimating pose3d at the start part of the trajectory
                     # -----------------------------------------------------
                     # self.initial_rotation, self.initial_scale ... initial angle and scale
-                    # qua_est, sca_est ... angle and scale computed from the
+                    # qua_goi, sca_goi ... angle and scale computed from the
                     #       GPS data obtained so far; the distance travelled is
                     #       here shorter than the value of `window`
                     # weight ... number between 0.0 and 1.0 representing the
-                    #       credibility of qua_est, sca_est
+                    #       credibility of qua_goi, sca_goi
                     weight = min(abs(self.distance_travelled) / self.initial_window, 1.0)
-                    qua = quaternion.slerp(self.initial_rotation, qua_est, weight)
-                    sca = (1 - weight)*self.initial_scale + weight*sca_est
+                    qua = quaternion.slerp(self.initial_rotation, qua_goi, weight)
+                    sca = (1 - weight)*self.initial_scale + weight*sca_goi
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(qua, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
@@ -382,9 +404,9 @@ class TrackerLeastSquares(Tracker):
                     pose3d_xyz = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(self.initial_rotation, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
-                elif all(var is not None for var in [qua_est, sca_est]):
-                    pose3d_xyz = rotate_and_scale(qua_est, sca_est, last.odo, input_origin, output_origin)
-                    pose3d_ori = quaternion.multiply(qua_est, last.ori)
+                elif all(var is not None for var in [qua_goi, sca_goi]):
+                    pose3d_xyz = rotate_and_scale(qua_goi, sca_goi, last.odo, input_origin, output_origin)
+                    pose3d_ori = quaternion.multiply(qua_goi, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
             self.window_first_index = 0
         else:
