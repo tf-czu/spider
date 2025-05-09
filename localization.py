@@ -20,25 +20,30 @@ class Localization(Node):
         # register a stream to be published
         bus.register('pose3d')
 
-        #options = {
-        #        "window": config.get('window', 1),
-        #        "post window": config.get('post window', None),
-        #        "prune": config.get('prune', 1),
-        #        "initial window": config.get('initial window', None),
-        #        "initial scale": config.get('initial scale', None),
-        #        "initial angle": config.get('initial angle', None),
-        #    }
-        #self.tracker = TrackerLeastSquares(options)
+        self.algorithm = config.get('algorithm', None)
+        assert self.algorithm is not None
+        assert self.algorithm in ["lsqr", "kalman"]
 
-        options = {
-                # standard deviation [x, y, z] of position from GPS
-                # (the second argument is the default value)
-                "gps_err": config.get('gps_err', [2, 2, 6]),
-                # standard deviation [x, y, z] of position computed from odometry and IMU
-                # (the second argument is the default value)
-                "imu_err": config.get('imu_err', [4, 4, 100]),
-            }
-        self.tracker = TrackerKalman(options)
+        if self.algorithm == "lsqr":
+            options = {
+                    "window": config.get('window', 1),
+                    "post window": config.get('post window', None),
+                    "prune": config.get('prune', 1),
+                    "initial window": config.get('initial window', None),
+                    "initial scale": config.get('initial scale', None),
+                    "initial angle": config.get('initial angle', None),
+                }
+            self.tracker = TrackerLeastSquares(options)
+        elif self.algorithm == "kalman":
+            options = {
+                    # standard deviation [x, y, z] of position from GPS
+                    # (the second argument is the default value)
+                    "gps err": config.get('gps err', [2, 2, 6]),
+                    # standard deviation [x, y, z] of position computed from odometry and IMU
+                    # (the second argument is the default value)
+                    "imu err": config.get('imu err', [4, 4, 100]),
+                }
+            self.tracker = TrackerKalman(options)
 
         # `on_the_way` indicates whether the robot has started moving
         #   ... this serves to filter out initial GPS values which tend to be messy
@@ -225,7 +230,6 @@ class Localization(Node):
                 },
             ]
         for trajectory in trajectories:
-            print("---", trajectory["label"])
             list_of_x = []
             list_of_y = []
             for pos in trajectory["trajectory"]:

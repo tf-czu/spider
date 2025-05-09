@@ -8,8 +8,6 @@ from lib.anglescaleestimator import AngleScaleEstimator
 from lib.tracker import Tracker
 
 class TrackerKalman(Tracker):
-    #def __init__(self, gps_err = [2, 2, 6], imu_err = [4, 4, 100]):
-    #def __init__(self,  gps_err, imu_err):
     def __init__(self, options):
         # odchylky se mohou v prubehu zpracovani menit metodami set_gps_err() a
         # set_imu_err(); jejich nastaveni je magie
@@ -45,11 +43,11 @@ class TrackerKalman(Tracker):
         self.debug_odo_xyz = [] # seznam dvojic (x, y)
         self.debug_odo_xyz_processed = [] # otocene a natahnute odo souradnice (x, y)
         self.debug_starting_points = [] # souradnice ase.origin v prubehu jizdy (x, y)
-        self._gps_err = options["gps_err"]
-        self._imu_err = options["imu_err"]
+        self._gps_err = options["gps err"]
+        self._imu_err = options["imu err"]
         # zde bude ulozena puvodni hodnota imu_err pro ucely jejich uprav,
         # nebude se menit
-        self.original_imu_err = options["imu_err"]
+        self.original_imu_err = options["imu err"]
         self.first_move = True
 
     def set_gps_err(self, gps_err):
