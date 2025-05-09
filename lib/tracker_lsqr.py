@@ -7,17 +7,18 @@ import osgar.lib.quaternion as quaternion
 
 from lib.tracker import Tracker
 
-# SyncGpsOdo ... named tuple representing one item in the list of synchronized
-#   positions obtained from GPS and odometry+IMU
-#
-#   * time (datetime.timedelta): (absolute) time (note that the time in seconds
-#       can be obtained by calling `time.total_seconds()`)
-#   * gps (list of float): [x,y,z] position obtained from GPS [meters]
-#   * odo (list of float): [x,y,z] position obtained from odometry+IMU [meters]
-#   * ori (list of float): orientation obtained from IMU as a quaternion
-#       a+bi+cj+dk represented by the list [b,c,d,a]
-#   * tra (float): distance travelled [meters]
+"""
+    SyncGpsOdo ... named tuple representing one item in the list of synchronized
+      positions obtained from GPS and odometry+IMU
 
+      * time (datetime.timedelta): (absolute) time (note that the time in seconds
+          can be obtained by calling `time.total_seconds()`)
+      * gps (list of float): [x,y,z] position obtained from GPS [meters]
+      * odo (list of float): [x,y,z] position obtained from odometry+IMU [meters]
+      * ori (list of float): orientation obtained from IMU as a quaternion
+          a+bi+cj+dk represented by the list [b,c,d,a]
+      * tra (float): distance travelled [meters]
+"""
 SyncGpsOdo = namedtuple("SyncGpsOdo", "time gps odo ori tra")
 
 def compute_rotation_and_scale(sync_gps_odo,
@@ -206,12 +207,6 @@ class TrackerLeastSquares(Tracker):
         self.last_sync_odo = [0.0, 0.0, 0.0]
         # output
         self.pose3d = None
-        # for debugging
-        self.plot_pose3d = []
-        self.plot_init = []
-        self.plot_est = []
-
-        self.plot_xyz_by_encoders = []
 
     def input_gps_xyz(self, time, xyz):
         """
@@ -245,8 +240,6 @@ class TrackerLeastSquares(Tracker):
                                tra = self.distance_travelled)
                 self.sync_gps_odo.append(s)
                 self.compute_trajectory()
-                #if self.post_window is not None:
-                #    self.compute_post_process_trajectory()
 
     def input_orientation(self, time, orientation):
         """
@@ -328,34 +321,16 @@ class TrackerLeastSquares(Tracker):
 
                 2. after the robot travels the distance given by `initial_window`:
         """
-
-#def compute_rotation_and_scale(sync_gps_odo,
-#                               or_g = [0, 0, 0],
-#                               or_o = [0, 0, 0],
-#                               first_index = 0,
-#                               length = None,
-#                               prune = 1):
-#def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
-
-
         # Post-processed Trajectory
-        #if self.post_window is not None:
-        #    self.compute_post_process_trajectory()
-        #return
+        if self.post_window is not None:
+            self.compute_post_process_trajectory()
         # Real-time Trajectory
         len_trajectory = len(self.trajectory)
         if len_trajectory == 0:
             #first_index = 0
             len_sync_gps_odo = len(self.sync_gps_odo)
-            #last_index = len_sync_gps_odo - 1
-            #first = self.sync_gps_odo[0]
-            #last = self.sync_gps_odo[last_index]
             last = self.sync_gps_odo[-1]
-            #if abs(last.tra - first.tra) > self.window:
             if last.tra is not None and abs(last.tra) > self.window:
-                #or_o = or_g = first.odo
-                #or_o = first.odo
-                #or_g = first.gps
                 or_o = [0.0, 0.0, 0.0]
                 or_g = [0.0, 0.0, 0.0]
                 qua, sca = compute_rotation_and_scale(self.sync_gps_odo,
@@ -393,13 +368,6 @@ class TrackerLeastSquares(Tracker):
                     pose3d_xyz = rotate_and_scale(qua, sca, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(qua, last.ori)
                     self.pose3d = [pose3d_xyz, pose3d_ori]
-                    # TODO for debugging, to be removed
-                    pose3d_xyz_init = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, input_origin, output_origin)
-                    pose3d_ori_init = quaternion.multiply(self.initial_rotation, last.ori)
-                    self.plot_init.append(pose3d_xyz_init)
-                    pose3d_xyz_est = rotate_and_scale(qua_est, sca_est, last.odo, input_origin, output_origin)
-                    pose3d_ori_est = quaternion.multiply(qua_est, last.ori)
-                    self.plot_est.append(pose3d_xyz_est)
                 elif all(var is not None for var in [self.initial_rotation, self.initial_scale]):
                     pose3d_xyz = rotate_and_scale(self.initial_rotation, self.initial_scale, last.odo, input_origin, output_origin)
                     pose3d_ori = quaternion.multiply(self.initial_rotation, last.ori)
@@ -434,68 +402,4 @@ class TrackerLeastSquares(Tracker):
             new_ori = quaternion.multiply(qua, last.ori)
             self.pose3d = [new_xyz, new_ori]
             self.trajectory.append(self.pose3d)
-
-    def draw(self):
-        # TODO to be removed
-        import matplotlib.pyplot as plt
-
-        #print("len:", len(self.plot_xyz_by_encoders))
-        #for xyz in self.plot_xyz_by_encoders:
-        #    print(xyz)
-
-        # plot GPS and odometry
-        plot_gps = []
-        plot_odo = []
-        for s in self.sync_gps_odo:
-            plot_gps.append(s.gps)
-            plot_odo.append(s.odo)
-        # list of drawn trajectories
-        trajectories = []
-        # plot post-processed trajectory
-        if self.post_window is not None:
-            plot_post_trajectory = []
-            for xyz, ori in self.post_trajectory:
-                plot_post_trajectory.append(xyz)
-            trajectories.append({
-                    "trajectory": plot_post_trajectory,
-                    "options": "y.",
-                    "label": "post-processing",
-                })
-        trajectories.extend([
-                {
-                    "trajectory": plot_gps,
-                    "options": "c+",
-                    "label": "GPS",
-                },
-                {
-                    "trajectory": plot_odo,
-                    "options": "g.",
-                    "label": "Odometry & IMU",
-                },
-                {
-                    "trajectory": self.plot_pose3d,
-                    "options": "b.",
-                    "label": "pose3d",
-                },
-               #{
-               #    "trajectory": self.plot_init,
-               #    "options": "m.",
-               #    "label": "estimation by initial angle & scale",
-               #},
-               #{
-               #    "trajectory": self.plot_xyz_by_encoders,
-               #    "options": "r.",
-               #    "label": "xyz_by_encoders",
-               #},
-            ])
-        for trajectory in trajectories:
-            list_of_x = []
-            list_of_y = []
-            for coords in trajectory["trajectory"]:
-                list_of_x.append(coords[0])
-                list_of_y.append(coords[1])
-            plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
-        plt.legend()
-        plt.axis('equal')
-        plt.show()
 

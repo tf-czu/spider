@@ -19,7 +19,7 @@
 	      "in": ["nmea_data (poznamka)"],
 	      "out": ["pose3d (poznamka)"],
 	      "init":{
-            "algorithm": "kalman",
+            "algorithm": "lsqr",
             "gps err": [2, 2, 6],
             "imu err": [4, 4, 100],
             "window": 20,
