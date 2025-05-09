@@ -220,7 +220,7 @@ class Localization(Node):
                 },
                 {
                     "trajectory": self.plot_odo,
-                    "options": "y.",
+                    "options": "g.",
                     "label": "odometry+IMU",
                 },
                 {
@@ -229,6 +229,18 @@ class Localization(Node):
                     "label": "pose3d",
                 },
             ]
+        if self.algorithm == "lsqr":
+            post_trajectory = self.tracker.get_post_process_trajectory()
+            if post_trajectory is not None:
+                plot_post_trajectory = []
+                for xyz, ori in post_trajectory:
+                    plot_post_trajectory.append(xyz)
+                trajectories = [
+                        {
+                            "trajectory": plot_post_trajectory,
+                            "options": "m.",
+                            "label": "post-processed",
+                        }] + trajectories
         for trajectory in trajectories:
             list_of_x = []
             list_of_y = []

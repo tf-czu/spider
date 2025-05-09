@@ -307,6 +307,16 @@ class TrackerLeastSquares(Tracker):
                 new_ori = quaternion.multiply(qua, s.ori)
                 self.post_trajectory.append([new_xyz, new_ori])
 
+    def get_post_process_trajectory(self):
+        """
+            Returns (list): the trajectory computed by post-processing;
+                or `None` of no such trajectory has been computed
+        """
+        if self.post_window is None:
+            return None
+        else:
+            return self.post_trajectory
+
     def compute_trajectory(self):
         # TODO complete documentation
         """
