@@ -1,13 +1,31 @@
+# -*- coding: UTF-8 -*-
+
 import numpy as np
 import math
 import copy
+
 import osgar.lib.quaternion as quaternion
+
 from lib.kalman import KalmanFilterLocalization
-from lib.speedometer import TrackerOdoIMU
+from lib.speedometer import ConverterOdoIMUtoXYZ
 from lib.anglescaleestimator import AngleScaleEstimator
 from lib.tracker import Tracker
 
 class TrackerKalman(Tracker):
+    """
+        Computes trajectory from asynchronously provided GPS, odometry, and IMU
+            data utilizing Kalman filter.
+
+        Input and Output:
+
+            See: Tracker
+
+        Authors:
+
+            * Jan Hora (horaj@tf.czu.cz)
+            * Milan Petrík (petrikm@tf.czu.cz)
+    """
+
     def __init__(self, options):
         # odchylky se mohou v prubehu zpracovani menit metodami set_gps_err() a
         # set_imu_err(); jejich nastaveni je magie
@@ -26,7 +44,7 @@ class TrackerKalman(Tracker):
         # posledni orientace ziskana z IMU jako kvaternion
         self.last_orientation = None
         # tracker pocita (x,y,z) polohu z udaju z odometrie a IMU
-        self.tracker_odo_imu = TrackerOdoIMU()
+        self.tracker_odo_imu = ConverterOdoIMUtoXYZ()
         # vyjadruje aktualni stav robota, bud waiting nebo moving
         self.status = "waiting"
         # potreba pro prumerovani gps pozice behem stani
@@ -119,14 +137,12 @@ class TrackerKalman(Tracker):
                 self.kf = KalmanFilterLocalization()
                 # pocet gps mereni behem stani snizuje chybu
                 #self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
-                #print("Resetting AngleScaleEstimator and origin to", xyz[:2])
                 self.ase.set_origin(self.last_xyz_gps[:2])
                 # setting difference of new starting points to shift the IMU
                 # info so that both gps and IMU "start at the same point"
                 for i in range(3):
                     self.diff_odo_gps[i] = self.last_xyz_gps[i] - self.last_xyz_odo_raw[i]  
                 self.debug_starting_points.append((self.ase.origin[0], self.ase.origin[1]))
-                #print("Diff", self.diff_odo_gps)
 
             # updating Kalman filter
             self.kf.input(xyz, time.total_seconds(), self._gps_err)
@@ -138,11 +154,6 @@ class TrackerKalman(Tracker):
             for i in range(3):
                 shifted_tracker_xyz[i] = tracker_xyz[i] + self.diff_odo_gps[i]
             self.ase.update(xyz, shifted_tracker_xyz)
-            #p = xyz
-            #q = shifted_tracker_xyz
-            #distance = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
-            #if distance < 1:
-            #    print("Ase updating:", xyz, shifted_tracker_xyz)
 
     def input_orientation(self, time, orientation):
         """
@@ -181,7 +192,6 @@ class TrackerKalman(Tracker):
                 status = "stopping"
             #
             if status == "moving":
-                
                 # zde dodelat otoceni a scale IMU pozice a nejak vlozit do
                 # Kalmanova filtru
                 if self.ase.get_angle() is not None and self.ase.get_scale() is not None:
@@ -191,10 +201,6 @@ class TrackerKalman(Tracker):
                     shifted_tracker_xyz = [0.0, 0.0, 0.0]
                     for i in range(3):
                         shifted_tracker_xyz[i] = tracker_xyz[i] + self.diff_odo_gps[i]
-
-                    ## TODO pracuje se pouze s 2D odometrii a pak se k tomu
-                    ## prida nulova z-ova souradnice;
-                    ## mozna by se mohlo pracovat rovnou s 3D odometrii
                     rotated_and_scaled_IMU_position = self.ase.rotate_and_scale(shifted_tracker_xyz[:2])
                     rotated_and_scaled_IMU_position_3D = list(rotated_and_scaled_IMU_position) + [0.0] # TODO tady nema byt `+ [0.0]` !!!
                     self.kf.input(rotated_and_scaled_IMU_position_3D, time.total_seconds(), self._imu_err)
@@ -211,41 +217,23 @@ class TrackerKalman(Tracker):
                 for i in range(3):
                     gps_err[i] = self._gps_err[i]/self.number_waiting_gps_measurements
                 self.kf.input(self.average_gps_xyz, time.total_seconds(), gps_err)
-                #print()
-                #print("Setting off") 
-                #print("odo raw:", self.last_xyz_odo_raw) 
-                #print("odo:", self.last_xyz_odo) 
-                #print("gps:", self.average_gps_xyz) 
-                #print("Diff", self.diff_odo_gps)
                 p = self.ase.origin
                 q = self.average_gps_xyz
                 distance_from_last_origin = np.sqrt((p[0]-q[0])**2+(p[1]-q[1])**2)
-                #print("distance", distance_from_last_origin)
                 # origin is reset only if the new one is far from the old one
                 # far means more than one meter
                 if distance_from_last_origin > 1:
-                    #print("Setting off and reseting origin to", self.average_gps_xyz[:2])
                     self.ase.set_origin(self.average_gps_xyz[:2])
                     # setting difference of new starting points to shift the IMU
                     # info so that both gps and IMU "start at the same point"
                     for i in range(3):
                         self.diff_odo_gps[i] = self.average_gps_xyz[i] - self.last_xyz_odo_raw[i]  
                     self.debug_starting_points.append((self.ase.origin[0], self.ase.origin[1]))
-                    #print("Diff", self.diff_odo_gps)
-
         
             elif status == "stopping":
                 self.status = "waiting"
                 self.average_gps_xyz = self.last_xyz_kf
                 self.number_waiting_gps_measurements = 1
-                #print()
-                #print("Stopping") 
-                #print("odo raw:", self.last_xyz_odo_raw)
-                #print("odo:", self.last_xyz_odo)
-                #print("gps:", self.last_xyz_kf)
-                #print("Diff", self.diff_odo_gps)
-                
-
         # DEBUG
         self.debug_odo_xyz.append((tracker_xyz[0], tracker_xyz[1]))
 
@@ -312,38 +300,4 @@ class TrackerKalman(Tracker):
             if ori is not None:
                 ori = list(ori)
             return [xyz, ori]
-        # TODO this method is probably obsolete now
-        """
-            Returns the position and the orientation of the robot.
-
-            According to the value of `time`, the returned value is either an
-                output of the embedded Kalman filter or it is the scaled and
-                rotated odometry position. 
-        
-            Args:
-                time (datetime.timedelta): (absolute) time;
-
-                    * if time is None:
-                        the current position is returned as the scaled and
-                            rotated odometry position;
-                    * if type(time) is datetime.timedelta):
-                        the extrapolation of the position by the Kalman filter
-                        is returned;
-                    * otherwise (e.g. if time == "now"):
-                        the current position by the Kalman filter is returned;
-
-            Returns (list): list with two items:
-                1. list with three floats ... coordinates in meters
-                    representing the position of the robot;
-                2. list with four floats ... quaternion representing the
-                    orientation of the robot;
-                    if it cannot be computed, `None` is returned
-        """
-        # ziskana z IMU
-        if time is None:
-            #elif isinstance(time, datetime.timedelta):
-            result = [self.last_xyz_kf, self.last_orientation]
-        else:
-            result = [self.kf.get_xyz_estimate(time.total_seconds()), self.last_orientation]
-        return result
 

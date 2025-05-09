@@ -9,6 +9,8 @@ class Speedometer:
         Designed to be able to distinguish from the odometry measuring whether
             a robot is moving or not.
 
+        Utilized by TrackerKalman in tracker_kalman.py.
+
         Input:
             * `update()` ... adds incremetal distance travelled
 
@@ -81,7 +83,6 @@ class Speedometer:
         else:
             (t_a, s_a) = self.history[-2]
             (t_b, s_b) = self.history[-1]
-            #print(t_a, s_a, t_b, s_b)
             return (s_b - s_a) / (t_b.total_seconds() - t_a.total_seconds())
 
     def compute_average_velocity_over_last_period(self):
@@ -130,7 +131,7 @@ class Speedometer:
         else:
             return False
 
-class TrackerOdoIMU:
+class ConverterOdoIMUtoXYZ:
     """
         Computes the (x,y,z) position according to the data obtained from
             odometry and IMU.
@@ -180,15 +181,6 @@ class TrackerOdoIMU:
             distance_3d = quaternion.rotate_vector([distance, 0.0, 0.0], self.orientation)
             for i in range(len(self.xyz)):
                 self.xyz[i] += distance_3d[i]
-            ## compute angle between xyz from imu and xyz from GPS
-            ## and rotate xyz from imu
-            #xyz_from_imu_rotated = self.kf.rotate_xyz_from_imu(xyz_from_imu, time.total_seconds())
-            ## insert xyz from odometry and IMU into Kalman filter
-            ## (which works primarily with xyz form GPS)
-            #self.kf.input_imu(xyz_from_imu_rotated, time.total_seconds(), 10)
-            #time_in_seconds, xyz = self.kf.get_last_xyz()
-            #self.last_time = time
-            #self.last_xyz = xyz
 
     def get_xyz(self):
         """

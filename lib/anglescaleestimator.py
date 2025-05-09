@@ -8,6 +8,8 @@ class AngleScaleEstimator:
         Takes position (and time?) data from two sources (gps and IMU)
         and estimates rotation and scale between them
 
+        Utilized by TrackerKalman in tracker_kalman.py.
+
         Input:
             * `update()` ... processes a gps input and imu input 
 

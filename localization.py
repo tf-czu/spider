@@ -132,7 +132,7 @@ class Localization(Node):
         if self.verbose:
             self.counter_of_odometry_signal += 1
             if self.counter_of_odometry_signal % 1000 == 0:
-                print(self.odometry_from, self.counter_of_odometry_signal)
+                print(self.algorithm, self.odometry_from, self.counter_of_odometry_signal)
         #
         xy = [data[i] / 1000.0 for i in range(2)] # convert [mm] to [m]
         heading = math.radians(data[2] / 100.0)
@@ -177,7 +177,7 @@ class Localization(Node):
         if self.verbose:
             self.counter_of_odometry_signal += 1
             if self.counter_of_odometry_signal % 1000 == 0:
-                print(self.odometry_from, self.counter_of_odometry_signal)
+                print(self.algorithm, self.odometry_from, self.counter_of_odometry_signal)
         #
         distance = self.encoders_scale * ((data[0] + data[1]) / 2)
         self.tracker.input_distance_travelled(self.time, distance)

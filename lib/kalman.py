@@ -8,6 +8,8 @@ class KalmanFilterLocalization:
         Implementation of Kalman filter with 3D position, velocity, and
             acceleration.
 
+        Utilized by TrackerKalman in tracker_kalman.py.
+
         Input: 3D position
         Inner states: 3D position, 3D velocity, 3D acceleration
         Output: filtered 3D position

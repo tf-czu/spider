@@ -1,71 +1,5 @@
 # -*- coding: UTF-8 -*-
 
-"""
-    Computes trajectory from asynchronously provided GPS, odometry, and IMU
-        data.
-
-    Input: two sources of 3D position, asynchronously provided:
-
-        * 3D cartesian coordinates [in meters] computed from GPS:
-            This value may be affected by a significnat non-Gaussian error (the
-            correct position can differ by several meters), however, this error
-            is not affected by the distance travelled.
-            Hence, the relative error decreases with when the distance
-            travelled increases and the position is well reliable on long
-            distances.
-            See: TrackerLeastSquares.input_gps_xyz()
-
-        * 3D cartesian coordinates [in meters] computed from odometry and IMU:
-            Odometry provides relative changes of the distance travelled [in
-            meters] while IMU provides the orientation of the robot as a
-            quaternion a+bi+cj+dk represented by the list `[b,c,d,a]`.
-            This is in accord with the [ROS standard]
-            (http://wiki.ros.org/tf2/Tutorials/Quaternions), see also
-            osgar/lib/quaternion.py.
-            Both odometry and IMU are affected by errors which are more or less
-            constant in time, however, the longer distance the robot travels,
-            the grater impact these errors have.
-            See: TrackerLeastSquares.input_distance_travelled(),
-                TrackerLeastSquares.input_orientation()
-
-    Output:
-
-        See: TrackerLeastSquares.get_pose3d()
-        
-    Algorithm:
-
-        The initial orientation of the trajectory given by odometry+IMU will
-            generally differ from the orientation of the trajectory given by GPS.
-        Also, the scale of these two trajectories will differ in general.
-
-        The algorithm is based on the idea of computing the trajectory from
-            odometry+IMU and then rotating and scaling it such that it fits best
-            (by the least squares criterion) to the trajectory given by GPS.
-        This approach would work perfectly if the scale error of the odometry
-            and the angle error of the IMU would be perfectly constant ... they are
-            not.
-        The algorithm therefore does not compute the scale and the angle error
-            from the whole input data series but uses a moving window which also
-            allows a computataion of the trajectory in real time.
-
-    Important:
-
-        It is expected, that the GPS, odometry, and IMU data are provided
-            asynchronously, however, constantly.
-        That is, no gaps!
-        Actually, the synchronization is performed in a very naive way:
-            with each new data from odometry, the last data from GPS and IMU
-            are taken and this triplet is then stored to the list
-            `sync_gps_odo` from which the resulting trajectory is being
-            computed.
-        Hence, the algorithm will probably behave inpredictibly if, e.g.,
-            the GPS data are not provided for a longer period.
-
-    Author:
-
-        Milan Petrík (petrikm@tf.czu.cz)
-"""
-
 import math, copy
 from collections import namedtuple
 
@@ -190,7 +124,44 @@ def rotate_and_scale(rotation, scale, vector, input_origin, output_origin):
 class TrackerLeastSquares(Tracker):
     """
         Computes trajectory from asynchronously provided GPS, odometry, and IMU
-            data using the least squares criterion.
+            data.
+
+        Input and Output:
+
+            See: Tracker
+
+        Algorithm:
+
+            The initial orientation of the trajectory given by odometry+IMU will
+                generally differ from the orientation of the trajectory given by GPS.
+            Also, the scale of these two trajectories will differ in general.
+
+            The algorithm is based on the idea of computing the trajectory from
+                odometry+IMU and then rotating and scaling it such that it fits best
+                (by the least squares criterion) to the trajectory given by GPS.
+            This approach would work perfectly if the scale error of the odometry
+                and the angle error of the IMU would be perfectly constant ... they are
+                not.
+            The algorithm therefore does not compute the scale and the angle error
+                from the whole input data series but uses a moving window which also
+                allows a computataion of the trajectory in real time.
+
+        Important:
+
+            It is expected, that the GPS, odometry, and IMU data are provided
+                asynchronously, however, constantly.
+            That is, no gaps!
+            Actually, the synchronization is performed in a very naive way:
+                with each new data from odometry, the last data from GPS and IMU
+                are taken and this triplet is then stored to the list
+                `sync_gps_odo` from which the resulting trajectory is being
+                computed.
+            Hence, the algorithm will probably behave inpredictibly if, e.g.,
+                the GPS data are not provided for a longer period.
+
+        Author:
+
+            * Milan Petrík (petrikm@tf.czu.cz)
     """
 
     def __init__(self, options):
