@@ -62,6 +62,7 @@ class Localization(Node):
         # scale coefficient to convert odometry ticks to meters, if odometry_from == "encoders"
         # (should be 0.00218 for spider robot)
         self.encoders_scale = config.get('enc scale', None)
+        assert self.encoders_scale is not None
 
         # converting GPS to cartesian coordinates
         self.gps_converter = None
@@ -172,7 +173,6 @@ class Localization(Node):
         if self.odometry_from is None:
             self.odometry_from = "encoders"
         assert self.odometry_from == "encoders"
-        assert self.encoders_scale is not None
         # for debugging
         if self.verbose:
             self.counter_of_odometry_signal += 1

@@ -295,9 +295,10 @@ class TrackerKalman(Tracker):
             return None
         else:
             xyz, ori = pose3d
-            if xyz is not None:
+            if xyz is None or ori is None:
+                return None
+            else:
                 xyz = list(xyz)
-            if ori is not None:
                 ori = list(ori)
-            return [xyz, ori]
+                return [xyz, ori]
 
