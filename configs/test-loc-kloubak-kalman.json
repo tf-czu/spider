@@ -1,0 +1,63 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "gps": {
+          "driver": "gps",
+          "in": ["raw"],
+          "out": ["position"],
+          "init": {}
+      },
+      "gps_serial": {
+          "driver": "serial",
+          "in": [],
+          "out": ["raw"],
+          "init": {"port": "/dev/ttyUSB0", "speed": 4800}
+      },
+      "localization": {
+	      "driver": "localization:Localization",
+	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
+	      "out": ["pose3d"],
+	      "init":{
+            "algorithm": "kalman",
+            "enc scale": 0.00218,
+            "gps err": [2, 2, 6],
+            "imu err": [4, 4, 100]
+          }
+      },
+       "oak_d": {
+          "driver": "osgar.drivers.oak_camera:OakCamera",
+          "init": {
+            "fps": 5,
+            "is_color": true,
+            "is_depth": true,
+            "cam_ip": "192.168.1.52",
+
+            "mono_resolution": "THE_400_P",
+            "color_resolution": "THE_1080_P",
+            "color_manual_focus": 130,
+
+            "stereo_median_filter": "KERNEL_7x7",
+            "stereo_mode": "HIGH_DENSITY",
+            "stereo_extended_disparity": true,
+            "stereo_subpixel": false,
+            "stereo_left_right_check": false
+          }
+      },
+       "oak_1": {
+          "driver": "osgar.drivers.oak_camera:OakCamera",
+          "init": {
+            "fps": 5,
+            "is_color": true,
+            "cam_ip": "192.168.1.61",
+            "color_resolution": "THE_1080_P"
+          }
+      }
+    },
+    "links": [
+              ["kloubak.encoders", "localization.encoders"],
+              ["imu.orientation", "localization.orientation"],
+              ["gps.nmea_data", "localization.nmea"]
+    ]
+  }
+}

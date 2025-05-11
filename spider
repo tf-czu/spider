@@ -1,1 +1,0 @@
-python3 -m osgar.replay --module localization --config ./configs/test-lsqr-loc-spider.json -F --verbose --draw $*

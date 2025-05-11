@@ -15,11 +15,19 @@
           "init": {"port": "/dev/ttyUSB0", "speed": 4800}
       },
       "localization": {
-	      "driver": "lsqr_loc:LSqrLoc",
-	      "in": ["nmea_data (poznamka)"],
-	      "out": ["pose3d (poznamka)"],
+	      "driver": "localization:Localization",
+	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
+	      "out": ["pose3d"],
 	      "init":{
-            "gps_sd": [0.03, 0.03, 0.09]
+            "algorithm": "lsqr",
+            "enc scale": 0.00218,
+            "window": 20,
+            "prune": 20,
+            "post window": 20,
+            "initial angle": -75,
+            "initial scale":  1.0,
+            "initial window": 3.0,
+            "initial dumb distance": 0.01
           }
       },
        "oak_d": {
@@ -52,7 +60,7 @@
       }
     },
     "links": [
-              ["kloubak.pose2d", "localization.odometry"],
+              ["spider.encoders", "localization.encoders"],
               ["imu.orientation", "localization.orientation"],
               ["gps.nmea_data", "localization.nmea"]
     ]
