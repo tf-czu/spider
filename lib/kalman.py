@@ -19,8 +19,7 @@ class KalmanFilterLocalization:
             Args:
                 position (numpy.array): the initial position;
                     numpy.array([0, 0, 0]) by default
-                start_time (float): start time in seconds (can be in arbitrary
-                    units, though); 0 by default
+                start_time (float): start time in seconds; 0 by default
                 P (numpy.array): matrix of variances and covariances;
                     by default: variances are 2 and covariances are 0
         """
@@ -52,8 +51,7 @@ class KalmanFilterLocalization:
             Args:
 
                 xyz (list of float): position `[x, y, z]` in meters
-                seconds (float): time in seconds (can be in arbitrary units,
-                    though, see the constructor)
+                seconds (float): time in seconds
                 xyz_err (list of float): error `[s_x, s_y, s_z]` of `xyz`
                     (as standard deviations, in meters)
         """
@@ -104,8 +102,7 @@ class KalmanFilterLocalization:
                 acceleration vector.
 
             Args:
-                time (float): time (in future) in seconds (can be in arbitrary
-                    units, though, see the constructor)
+                time (float): time (in future) in seconds
 
             Returns (numpy.array): estimated (extrapolated) coordinates
                 `[x, y, z]` of the position at the given time
@@ -121,8 +118,7 @@ class KalmanFilterLocalization:
                 acceleration vector.
 
             Args:
-                time (float): time (in future) in seconds (can be in arbitrary
-                    units, though, see the constructor)
+                time (float): time (in future) in seconds
 
             Returns (numpy.array): estimated (extrapolated) coordinates
                 `[v_x, v_y, v_z]` of the velocity at the given time
