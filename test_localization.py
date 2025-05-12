@@ -20,6 +20,7 @@ from localization import *
 class TestLocalization(unittest.TestCase):
 
     def test_pose2d_encoders_collision__lsqr(self):
+        # an error is expected if the odometry is read both from pose2d and encoders
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'lsqr',
@@ -45,6 +46,7 @@ class TestLocalization(unittest.TestCase):
             localization.on_pose2d([0, 0, 0])
 
     def test_pose2d_encoders_collision__kalman(self):
+        # an error is expected if the odometry is read both from pose2d and encoders
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'kalman',
@@ -66,6 +68,9 @@ class TestLocalization(unittest.TestCase):
             localization.on_pose2d([0, 0, 0])
 
     def test_on_pose2d__lsqr(self):
+        # a simple simulation of a uniform linear movement
+        # odometry is taken from pose2d
+        # pose3d is computed using TrackerLeastSquares
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'lsqr',
@@ -146,6 +151,9 @@ class TestLocalization(unittest.TestCase):
                     self.assertAlmostEqual(ori[i], expected_ori[i])
 
     def test_on_pose2d__kalman(self):
+        # a simple simulation of a uniform linear movement
+        # odometry is taken from pose2d
+        # pose3d is computed using TrackerKalman
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'kalman',
@@ -223,6 +231,9 @@ class TestLocalization(unittest.TestCase):
                     self.assertAlmostEqual(ori[i], expected_ori[i])
 
     def test_on_encoders__lsqr(self):
+        # a simple simulation of a uniform linear movement
+        # odometry is taken from encoders
+        # pose3d is computed using TrackerLeastSquares
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'lsqr',
@@ -303,6 +314,9 @@ class TestLocalization(unittest.TestCase):
                     self.assertAlmostEqual(ori[i], expected_ori[i])
 
     def test_on_encoders__kalman(self):
+        # a simple simulation of a uniform linear movement
+        # odometry is taken from encoders
+        # pose3d is computed using TrackerKalman
         bus = Bus(MagicMock())
         config = {
             'algorithm': 'kalman',

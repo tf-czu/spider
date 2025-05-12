@@ -24,6 +24,8 @@ class TestSpeedometer(unittest.TestCase):
         self.assertAlmostEqual(speedometer.get_speed(), 2.0)
 
     def test_is_moving_1(self):
+        # robot stands and then starts moving
+        #
         # robot stoji a pak se rozjede
         speedometer = Speedometer(period = 0.5, threshold = 0.001)
         path = [( 0, 0.0000, None),
@@ -52,6 +54,8 @@ class TestSpeedometer(unittest.TestCase):
             self.assertEqual(speedometer.is_moving(), expected)
 
     def test_is_moving_2(self):
+        # robot stands, starts moving, and stops
+        #
         # robot stoji, rozjede se a zastavi
         speedometer = Speedometer(period = 0.5, threshold = 0.001)
         path = [(0.0, 0.0000, None),
@@ -100,7 +104,8 @@ class TestSpeedometer(unittest.TestCase):
             self.assertEqual(speedometer.is_moving(), expected)
 
     def test_is_moving_3(self):
-        # testovani metoda compute_average_velocity_over_last_period()
+        # robot stands, starts moving, and stops
+        #
         # robot stoji, rozjede se a zastavi
         path = [(0.0, 0.0000, None,   None),
                 (0.1, 0.0000, None,   None),

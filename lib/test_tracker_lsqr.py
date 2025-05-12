@@ -3,25 +3,25 @@
 import unittest
 from unittest.mock import MagicMock
 
-#import random
-#import math
 from datetime import timedelta
-#
-#import osgar.lib.quaternion as quaternion
-#
-#from osgar.bus import Bus
-#
-#import lsqr_localization as loc
 
 from lib.tracker_lsqr import *
 
 class TestTrackerLeastSquares(unittest.TestCase):
 
     def test_compute_rotation_and_scale_45deg(self):
-        # GPS se pohybuje rovnomerne primocare po primce, ktera svira uhel 45 stupnu s osou x;
-        #   v kazdem kroku ujede 1 metr ve smeru osy x a 1 metr ve smeru osy y
-        # odometrie se pohybuje rovnomerne primocare ve smeru osy x;
-        #   v kazdem kroku ujede 1 metr ve smeru osy x
+        # GPS moves uniformly in a straight line, which forms the angle of 45
+        #     degrees with the x-axis;
+        #     in each step it travels 1 meter in the x-axis direction and 1
+        #     meter in the y-axis direction
+        # odometry moves uniformly in the direction of the x-axis;
+        #     it travels 1 meter in the x-axis direction in each step
+        #
+        # GPS se pohybuje rovnomerne primocare po primce, ktera svira uhel 45
+        #     stupnu s osou x; v kazdem kroku ujede 1 metr ve smeru osy x a 1 metr
+        #     ve smeru osy y
+        # odometrie se pohybuje rovnomerne primocare ve smeru osy x; v kazdem
+        #     kroku ujede 1 metr ve smeru osy x
         sync_gps_odo = []
         for k in range(10):
             time = timedelta(seconds = 0.1 * k)
@@ -38,6 +38,11 @@ class TestTrackerLeastSquares(unittest.TestCase):
         self.assertAlmostEqual(sca, math.sqrt(2))
 
     def test_compute_rotation_and_scale_90deg(self):
+        # GPS moves uniformly in the y-axis direction; travels 1 meter in the
+        #     y-axis direction at each step
+        # odometry moves uniformly in the direction of the x-axis; travels 1
+        #     meter in the x-axis direction in each step
+        #
         # GPS se pohybuje rovnomerne primocare ve smeru osy y;
         #   v kazdem kroku ujede 1 metr ve smeru osy y
         # odometrie se pohybuje rovnomerne primocare ve smeru osy x;
@@ -58,6 +63,10 @@ class TestTrackerLeastSquares(unittest.TestCase):
         self.assertAlmostEqual(sca, 1)
 
     def test_compute_rotation_and_scale_square(self):
+        # GPS successively acquires the values (0, 0), (0, 1), (1, 0), (1, 1)
+        # the odometry moves uniformly in the direction of the x-axis;
+        # travels 1 meter in the x-axis direction in each step
+        #
         # GPS postupne nabyva hodnot (0, 0), (0, 1), (1, 0), (1, 1)
         # odometrie se pohybuje rovnomerne primocare ve smeru osy x;
         #   v kazdem kroku ujede 1 metr ve smeru osy x
