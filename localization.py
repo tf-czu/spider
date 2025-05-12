@@ -73,6 +73,7 @@ class Localization(Node):
         self.gps_xyz = None
 
         # for debugging
+        self.verbose = False # super-class Node sets this to `True` if --verbose parameter is applied
         self.plot_gps = []
         self.plot_odo = []
         self.plot_pose3d = []
