@@ -50,6 +50,9 @@ class Tracker(ABC):
             Process next position obtained from GPS.
 
             Args:
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
                 xyz (list of float): list of three values `[x, y, z]`
                     representing cartesian coordinates derived from GPS data
         """
@@ -61,6 +64,9 @@ class Tracker(ABC):
             Process next (relative) distance travelled obtained from odometry.
 
             Args:
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
                 distance (float): distance travelled in meters; relative from
                     the last measurement
         """
@@ -72,6 +78,9 @@ class Tracker(ABC):
             Process next orientation quaternion obtained from IMU.
 
             Args:
+                time (datetime.timedelta): (absolute) time
+                    (time in seconds can be obtained by calling
+                    `time.total_seconds()`)
                 data (list of float): orientation of the robot as a quaternion
                     a+bi+cj+dk given by the list `[b,c,d,a]`
         """
