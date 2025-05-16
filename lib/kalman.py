@@ -8,6 +8,8 @@ class KalmanFilterLocalization:
         Implementation of Kalman filter with 3D position, velocity, and
             acceleration.
 
+        Utilized by TrackerKalman in tracker_kalman.py.
+
         Input: 3D position
         Inner states: 3D position, 3D velocity, 3D acceleration
         Output: filtered 3D position
@@ -17,8 +19,7 @@ class KalmanFilterLocalization:
             Args:
                 position (numpy.array): the initial position;
                     numpy.array([0, 0, 0]) by default
-                start_time (float): start time in seconds (can be in arbitrary
-                    units, though); 0 by default
+                start_time (float): start time in seconds; 0 by default
                 P (numpy.array): matrix of variances and covariances;
                     by default: variances are 2 and covariances are 0
         """
@@ -43,19 +44,18 @@ class KalmanFilterLocalization:
         self.H = np.array([[1,0,0,0,0,0,0,0,0],[0,1,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0]])
         self.HT = self.H.transpose()
 
-    def input(self, xyz, time, xyz_err):
+    def input(self, xyz, seconds, xyz_err):
         """
             Input of the Kalman filter.
 
             Args:
 
                 xyz (list of float): position `[x, y, z]` in meters
-                time (float): time in seconds (can be in arbitrary units,
-                    though, see the constructor)
+                seconds (float): time in seconds
                 xyz_err (list of float): error `[s_x, s_y, s_z]` of `xyz`
                     (as standard deviations, in meters)
         """
-        dt = time-self.time_of_last_update
+        dt = seconds-self.time_of_last_update
         da = dt*dt/2
         self.A = np.array([[1,0,0,dt,0,0,da,0,0],
                            [0,1,0,0,dt,0,0,da,0],
@@ -85,7 +85,7 @@ class KalmanFilterLocalization:
         self.position = res[:3]
         self.velocity = res[3:6]
         self.acceleration = res[6:]
-        self.time_of_last_update = time
+        self.time_of_last_update = seconds
 
     def get_last_xyz(self):
         """
@@ -102,12 +102,27 @@ class KalmanFilterLocalization:
                 acceleration vector.
 
             Args:
-                time (float): time (in future) in seconds (can be in arbitrary
-                    units, though, see the constructor)
+                time (float): time (in future) in seconds
 
             Returns (numpy.array): estimated (extrapolated) coordinates
                 `[x, y, z]` of the position at the given time
         """
         dt = time - self.time_of_last_update
         return self.position + self.velocity*dt + self.acceleration*dt*dt/2
+
+    def get_velocity_estimate(self, time):
+        """
+            Extrapolates the velocity vector in the given (future) time.
+
+            The extrapolation is computed from the last velocity and
+                acceleration vector.
+
+            Args:
+                time (float): time (in future) in seconds
+
+            Returns (numpy.array): estimated (extrapolated) coordinates
+                `[v_x, v_y, v_z]` of the velocity at the given time
+        """
+        dt = time - self.time_of_last_update
+        return self.velocity + self.acceleration*dt
 

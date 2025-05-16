@@ -6,13 +6,16 @@
 
 import unittest
 import datetime
-import random
 import math
 import lib.kalman as kalman
 
 class TestKalmanLocalization(unittest.TestCase):
 
     def test_convergence_to_const_point(self):
+        # tests if the Kalman filter converges after 20 steps to the value
+        # `[10, 10, 10]` provided that the first input value is `[0, 0, 0]`
+        # followed by the series of the values `[10, 10, 10]`
+        #
         # otestuje, zda kalmanuv filtr dokonverguje po 20ti krocich k hodnote
         # `[10, 10, 10]`, pokud mu bude zadana najdriv hodnota `[0, 0, 0]` a
         # potom hodnoty `[10, 10, 10]`
@@ -33,6 +36,11 @@ class TestKalmanLocalization(unittest.TestCase):
             self.assertAlmostEqual(last_xyz[i], 10.0, places = 0)
 
     def test_uniform_linear_motion(self):
+        # simulates uniform linear motion in the direction of the `velocity`
+        # vector;
+        # tests if, after 20 steps, the filtered coordinates are close (5%) to
+        # the input coordinates
+        #
         # simuluje rovnomerny primocary pohyb ve smeru vektoru `velocity`
         # testuje, zda jsou po 20ti krocich filtrovane souradnice blizke (5%)
         # vstupnim souradnicim
@@ -51,8 +59,6 @@ class TestKalmanLocalization(unittest.TestCase):
             xyz = new_xyz
             kf.input(xyz, time.total_seconds(), xyz_err)
             __, last_xyz = kf.get_last_xyz()
-            #print(xyz, last_xyz)
-        #print('---', xyz, last_xyz)
         relative_error = 3 * [None]
         for i in range(3):
             num = abs(xyz[i] - last_xyz[i])
@@ -63,5 +69,5 @@ class TestKalmanLocalization(unittest.TestCase):
                 relative_error[i] = 1
             else:
                 relative_error[i] = num / den
-            self.assertLess(relative_error[i], 0.05) # aby relativni chyba byla mensi nez 5%
+            self.assertLess(relative_error[i], 0.05) # the relative error is supposed to be less than 5%
 

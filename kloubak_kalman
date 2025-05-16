@@ -1,0 +1,2 @@
+python3 -m osgar.replay --module localization --config ./configs/test-loc-kloubak-kalman.json -F --verbose --draw $*
+
