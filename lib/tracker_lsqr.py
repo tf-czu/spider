@@ -165,25 +165,31 @@ class TrackerLeastSquares(Tracker):
             * Milan Petrík (petrikm@tf.czu.cz)
     """
 
-    def __init__(self, options):
+    def __init__(self,
+                 window         = 1,
+                 post_window    = None,
+                 prune          = 1,
+                 initial_window = None,
+                 initial_scale  = None,
+                 initial_angle  = None):
         # ----------------------------------------------------
         # input parameters
         # ----------------------------------------------------
         # length of the moving window in meters
-        self.window = options["window"]
+        self.window = window
         # window that is used when the trajectory is supposed to be computed by
         # post-processing, that is, when all the data are gathered;
         # if `None` then no post-processed trajectory is computed
-        self.post_window = options["post window"]
+        self.post_window = post_window
         # pruning of the data;
         # only every n-th data sample is taken when performing the
         # least-squares method
-        self.prune = options["prune"]
+        self.prune = prune
         # values for the initial computation of the trajectory when GPS and
         # odometry+IMU is still too unreliable
-        self.initial_window = options["initial window"] # in meters
-        self.initial_scale = options["initial scale"]
-        self.initial_angle = options["initial angle"] # in degrees
+        self.initial_window = initial_window # in meters
+        self.initial_scale = initial_scale
+        self.initial_angle = initial_angle # in degrees
         if self.initial_angle is None:
             self.initial_rotation = None
         else:

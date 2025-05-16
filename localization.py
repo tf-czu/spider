@@ -26,15 +26,14 @@ class Localization(Node):
         assert self.algorithm in ["lsqr", "kalman", "kalman gps"]
 
         if self.algorithm == "lsqr":
-            options = {
-                    "window": config.get('window', 1),
-                    "post window": config.get('post window', None),
-                    "prune": config.get('prune', 1),
-                    "initial window": config.get('initial window', None),
-                    "initial scale": config.get('initial scale', None),
-                    "initial angle": config.get('initial angle', None),
-                }
-            self.tracker = TrackerLeastSquares(options)
+            self.tracker = TrackerLeastSquares(
+                    window         = config.get('window', 1),
+                    post_window    = config.get('post window', None),
+                    prune          = config.get('prune', 1),
+                    initial_window = config.get('initial window', None),
+                    initial_scale  = config.get('initial scale', None),
+                    initial_angle  = config.get('initial angle', None)
+                )
         elif self.algorithm == "kalman":
             self.tracker = TrackerKalman(
                     # standard deviation [x, y, z] of position from GPS
