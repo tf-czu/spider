@@ -393,6 +393,89 @@ class TestLocalization(unittest.TestCase):
                 for i in range(4):
                     self.assertAlmostEqual(ori[i], expected_ori[i])
 
+    def test_kalman_gps(self):
+        # pose3d is computed using TrackerKalmanGPSOnly
+        bus = Bus(MagicMock())
+        config = {
+            'algorithm': 'kalman gps',
+            'gps err': [0, 0, 0],
+            'enc scale': 0.00218
+        }
+        localization = Localization(config, bus.handle('abc'))
+        localization.verbose = False
+        list_of_nmea = [
+                {'identifier': '$GNGGA', 'lon': 15.00000, 'lon_dir': 'E', 'lat': 50.00000, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00001, 'lon_dir': 'E', 'lat': 50.00001, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00002, 'lon_dir': 'E', 'lat': 50.00002, 'lat_dir': 'N', 'utc_time': '205207.95', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2308, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00003, 'lon_dir': 'E', 'lat': 50.00003, 'lat_dir': 'N', 'utc_time': '205208.00', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2285, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00004, 'lon_dir': 'E', 'lat': 50.00004, 'lat_dir': 'N', 'utc_time': '205208.05', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2261, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00005, 'lon_dir': 'E', 'lat': 50.00005, 'lat_dir': 'N', 'utc_time': '205208.10', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2237, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00006, 'lon_dir': 'E', 'lat': 50.00006, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00007, 'lon_dir': 'E', 'lat': 50.00007, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00008, 'lon_dir': 'E', 'lat': 50.00008, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+                {'identifier': '$GNGGA', 'lon': 15.00009, 'lon_dir': 'E', 'lat': 50.00009, 'lat_dir': 'N', 'utc_time': '205207.90', 'quality': 1, 'sats': 19, 'hdop': 0.6, 'alt': 292.2333, 'a_units': 'M', 'undulation': 43.7576, 'u_units': 'M', 'age': 0.0, 'stn_id': '0000'},
+            ]
+        expected_gps_xyz = [
+                [0.0, 0.0, 0.0],
+                [0.7158618258318254, 1.1136832995820294, 0.0],
+                [1.431723651663651, 2.227366598372739, -0.0024999999999977263],
+                [2.147585477622639, 3.3410498979547683, -0.004799999999988813],
+                [2.8634473034544645, 4.454733196745478, -0.0072000000000116415],
+                [3.57930912928629, 5.568416496327508, -0.009599999999977626],
+                [4.295170955118115, 6.6820997951182175, 0.0],
+                [5.011032780949941, 7.795783094700247, 0.0],
+                [5.726894606908929, 8.909466393490955, 0.0],
+                [6.4427564327407545, 10.023149693072984, 0.0],
+            ]
+        expected_pose3d = [
+                None,
+                [[0.0, 0.0, 0.0], None],
+                [[0.7158618258318254, 1.1136832995820294, 0.0], [0.0, 0.0, 0.4792096603132072, 0.8777004622663136]],
+                [[1.431723651663651, 2.227366598372739, -0.0024999999999977263], [0.0, 0.0, 0.479209660171374, 0.8777004623437521]],
+                [[2.147585477622639, 3.3410498979547683, -0.004799999999988813], [0.0, 0.0, 0.4792096602777489, 0.8777004622856732]],
+                [[2.8634473034544645, 4.454733196745478, -0.0072000000000116415], [0.0, 0.0, 0.479209660171374, 0.8777004623437521]],
+                [[3.57930912928629, 5.568416496327508, -0.009599999999977626], [0.0, 0.0, 0.4792096603132074, 0.8777004622663135]],
+                [[4.295170955118115, 6.6820997951182175, 0.0], [0.0, 0.0, 0.4792096601713741, 0.8777004623437521]],
+                [[5.011032780949941, 7.795783094700247, 0.0], [0.0, 0.0, 0.479209660313207, 0.8777004622663137]],
+                [[5.726894606908929, 8.909466393490955, 0.0], [0.0, 0.0, 0.4792096601359156, 0.8777004623631118]],
+            ]
+        for k in range(len(list_of_nmea)):
+            localization.time = timedelta(seconds = 0.1 * k)
+            localization.on_encoders([500*k, 500*k])
+            localization.on_orientation(quaternion.euler_to_quaternion(0, 0, 0))
+            localization.on_nmea(list_of_nmea[k])
+            # test GPS xyz
+            gps_xyz = localization.gps_xyz
+            self.assertIsNotNone(gps_xyz)
+            self.assertIsInstance(gps_xyz, list)
+            self.assertEqual(len(gps_xyz), 3)
+            for i in range(3):
+                self.assertAlmostEqual(gps_xyz[i], expected_gps_xyz[k][i])
+            # test pose3d
+            pose3d = localization.pose3d
+            if expected_pose3d[k] is None:
+                self.assertIsNone(pose3d)
+            else:
+                self.assertIsNotNone(pose3d)
+                self.assertIsInstance(pose3d, list)
+                self.assertEqual(len(pose3d), 2)
+                xyz, ori = pose3d
+                expected_xyz, expected_ori = expected_pose3d[k]
+                if expected_xyz is None:
+                    self.assertIsNone(xyz)
+                else:
+                    self.assertIsInstance(xyz, list)
+                    self.assertEqual(len(xyz), 3)
+                    for i in range(3):
+                        self.assertAlmostEqual(xyz[i], expected_xyz[i])
+                if expected_ori is None:
+                    self.assertIsNone(ori)
+                else:
+                    self.assertIsInstance(ori, list)
+                    self.assertEqual(len(ori), 4)
+                    for i in range(3):
+                        self.assertAlmostEqual(ori[i], expected_ori[i])
+
 if __name__ == '__main__':
     unittest.main()
 
