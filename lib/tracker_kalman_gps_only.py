@@ -4,8 +4,9 @@ import math
 
 import numpy as np
 
-from lib.tracker import Tracker
+from datetime import timedelta
 
+from lib.tracker import Tracker
 from lib.kalman import KalmanFilterLocalization
 
 def get_quaternion_from_difference(A, B):
@@ -47,16 +48,16 @@ class TrackerKalmanGPSOnly(Tracker):
     """
         Computes (smoothed) trajectory from GPS utilizing Kalman filter.
 
-        Input: GPS only, Odometry+IMU ignored
+        Input: GPS (Odometry+IMU ignored)
 
         Output: pose3d
     """
 
-    def __init__(self):
+    def __init__(self, gps_err = [0.0, 0.0, 0.0]):
         # Kalman filter
         self.kf = KalmanFilterLocalization()
         # standard deviations of GPS signal
-        self.gps_err = [0.0, 0.0, 0.0]
+        self.gps_err = gps_err
         # last position computed by Kalman filter
         self.xyz = None
         # last orientation computed from the positions computed by Kalman filter
@@ -73,9 +74,12 @@ class TrackerKalmanGPSOnly(Tracker):
         self.gps_err = gps_err
 
     def input_gps_xyz(self, time, xyz):
-        self.kf.input(xyz_from_gps, time.total_seconds(), self.gps_err)
+        self.kf.input(xyz, time.total_seconds(), self.gps_err)
         __, curr_xyz = self.kf.get_last_xyz()
+        if curr_xyz is not None:
+            curr_xyz = list(curr_xyz)
         last_xyz = self.xyz
+        self.xyz = curr_xyz
         if curr_xyz is None or last_xyz is None:
             self.ori = None
         else:
@@ -88,7 +92,7 @@ class TrackerKalmanGPSOnly(Tracker):
         pass
 
     def get_pose3d(self):
-        if self.xyz is None or self.ori is None:
+        if self.xyz is None and self.ori is None:
             return None
         else:
             return [self.xyz, self.ori]
