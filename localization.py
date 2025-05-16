@@ -36,15 +36,14 @@ class Localization(Node):
                 }
             self.tracker = TrackerLeastSquares(options)
         elif self.algorithm == "kalman":
-            options = {
+            self.tracker = TrackerKalman(
                     # standard deviation [x, y, z] of position from GPS
                     # (the second argument is the default value)
-                    "gps err": config.get('gps err', [2, 2, 6]),
+                    gps_err = config.get('gps err', [2, 2, 6]),
                     # standard deviation [x, y, z] of position computed from odometry and IMU
                     # (the second argument is the default value)
-                    "imu err": config.get('imu err', [4, 4, 100]),
-                }
-            self.tracker = TrackerKalman(options)
+                    imu_err = config.get('imu err', [4, 4, 100]),
+                )
         elif self.algorithm == "kalman gps":
             self.tracker = TrackerKalmanGPSOnly(
                     gps_err = config.get('gps err', [2, 2, 6]),
