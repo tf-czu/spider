@@ -8,6 +8,7 @@ from osgar.lib.route import Convertor as GPSConvertor
 
 from lib.tracker_lsqr import TrackerLeastSquares
 from lib.tracker_kalman import TrackerKalman
+from lib.tracker_kalman_gps_only import TrackerKalmanGPSOnly
 
 class Localization(Node):
     """
@@ -22,7 +23,7 @@ class Localization(Node):
 
         self.algorithm = config.get('algorithm', None)
         assert self.algorithm is not None
-        assert self.algorithm in ["lsqr", "kalman"]
+        assert self.algorithm in ["lsqr", "kalman", "kalman gps"]
 
         if self.algorithm == "lsqr":
             options = {
@@ -44,6 +45,10 @@ class Localization(Node):
                     "imu err": config.get('imu err', [4, 4, 100]),
                 }
             self.tracker = TrackerKalman(options)
+        elif self.algorithm == "kalman gps":
+            self.tracker = TrackerKalmanGPSOnly(
+                    gps_err = config.get('gps err', [2, 2, 6]),
+                )
 
         # `on_the_way` indicates whether the robot has started moving
         #   ... this serves to filter out initial GPS values which tend to be messy
@@ -61,7 +66,7 @@ class Localization(Node):
         self.last_xy = None
         # scale coefficient to convert odometry ticks to meters, if odometry_from == "encoders"
         # (should be 0.00218 for spider robot)
-        self.encoders_scale = config.get('enc scale', None)
+        self.encoders_scale = config.get("enc scale", None)
         assert self.encoders_scale is not None
 
         # converting GPS to cartesian coordinates
@@ -246,8 +251,9 @@ class Localization(Node):
             list_of_x = []
             list_of_y = []
             for pos in trajectory["trajectory"]:
-                list_of_x.append(pos[0])
-                list_of_y.append(pos[1])
+                if pos is not None:
+                    list_of_x.append(pos[0])
+                    list_of_y.append(pos[1])
             plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
         plt.legend()
         plt.axis('equal')

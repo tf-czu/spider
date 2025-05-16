@@ -22,7 +22,8 @@
             "algorithm": "kalman",
             "enc scale": 0.00218,
             "gps err": [2, 2, 6],
-            "imu err": [4, 4, 100]
+            "imu err": [4, 4, 100],
+            "initial dumb distance": 0.01
           }
       },
        "oak_d": {

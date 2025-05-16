@@ -19,10 +19,9 @@
 	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
 	      "out": ["pose3d"],
 	      "init":{
-            "algorithm": "kalman",
+            "algorithm": "kalman gps",
             "enc scale": 0.00218,
             "gps err": [2, 2, 6],
-            "imu err": [4, 4, 100],
             "initial dumb distance": 0.01
           }
       },
@@ -56,7 +55,7 @@
       }
     },
     "links": [
-              ["spider.encoders", "localization.encoders"],
+              ["kloubak.encoders", "localization.encoders"],
               ["imu.orientation", "localization.orientation"],
               ["gps.nmea_data", "localization.nmea"]
     ]
