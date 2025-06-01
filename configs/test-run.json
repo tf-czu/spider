@@ -19,7 +19,7 @@
 	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
 	      "out": ["pose3d"],
 	      "init":{
-            "algorithm": "kalman gps",
+            "algorithm": "lsqr",
             "enc scale": 0.00218,
             "window": 20,
             "prune": 20,

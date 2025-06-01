@@ -239,8 +239,7 @@ class Localization(Node):
                 plot_post_trajectory = []
                 for xyz, ori in post_trajectory:
                     plot_post_trajectory.append(xyz)
-                trajectories = [
-                        {
+                trajectories = [{
                             "trajectory": plot_post_trajectory,
                             "options": "m.",
                             "label": "post-processed",
