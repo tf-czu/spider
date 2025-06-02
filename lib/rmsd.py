@@ -27,6 +27,15 @@ def interpolate_xyz_in_time(time_1, xyz_1, time_2, xyz_2, time):
     return [(1 - alpha)*xyz_1[i] + alpha*xyz_2[i] for i in range(len(xyz_1))]
 
 class RootMeanSquareDeviationCounter:
+    """
+        Coputes root mean square deviation from two asynchronously provided
+            series of `[x,y]` or `[x,y,z]` positions.
+
+        The two series are referred to as X and Y;
+            they are stored in the attributes `list_of_X` and `list_of_Y`.
+
+        Attributes:
+    """
 
     def __init__(self):
         self.list_of_X = []
@@ -34,12 +43,27 @@ class RootMeanSquareDeviationCounter:
         self.synchronized = None
 
     def add_X(self, time, xyz):
+        """
+            Args:
+                time (datetime.timedelta): time
+                xyz (list of float): position as a list of (three) coordinates
+        """
         self.list_of_X.append((time, xyz))
 
     def add_Y(self, time, xyz):
+        """
+            Args:
+                time (datetime.timedelta): time
+                xyz (list of float): position as a list of (three) coordinates
+        """
         self.list_of_Y.append((time, xyz))
 
     def synchronize(self):
+        """
+            Synchronizes the X and Y series in time.
+
+            Stores the result to the attribute `synchronized`.
+        """
         i = j = 0
         len_list_of_X = len(self.list_of_X[i])
         len_list_of_Y = len(self.list_of_Y[j])
