@@ -70,6 +70,9 @@ class Localization(Node):
         # converting GPS to cartesian coordinates
         self.gps_converter = None
         self.gps_alt_0 = None
+        # precise RTK-GPS for reference purposes
+        self.rtk_converter = None
+        self.rtk_alt_0 = None
 
         # output (these values are mainly for unit-testing)
         self.pose3d = None
@@ -78,6 +81,7 @@ class Localization(Node):
         # for debugging
         self.verbose = False # super-class Node sets this to `True` if --verbose parameter is applied
         self.plot_gps = []
+        self.plot_rtk = []
         self.plot_odo = []
         self.plot_pose3d = []
         self.counter_of_odometry_signal = 0
@@ -118,6 +122,26 @@ class Localization(Node):
                 # for debugging
                 if self.verbose:
                     self.plot_gps.append(self.gps_xyz)
+
+    def on_rtk(self, data):
+        """
+            Process next data obtained from precise RTK GPS.
+        """
+        if self.on_the_way:
+            if data["quality"] != 0:
+                assert data["lon_dir"] == "E"
+                assert data["lat_dir"] == "N"
+                if self.rtk_converter:
+                    x, y = self.rtk_converter.geo2planar((data["lon"], data["lat"]))
+                    z = data["alt"] - self.rtk_alt_0
+                    self.rtk_xyz = [x, y, z]
+                else:
+                    self.rtk_converter = GPSConvertor((data["lon"], data["lat"]))
+                    self.rtk_alt_0 = data["alt"]
+                    self.rtk_xyz = [0.0, 0.0, 0.0]
+                # for debugging
+                if self.verbose:
+                    self.plot_rtk.append(self.rtk_xyz)
 
     def on_pose2d(self, data):
         """
@@ -216,34 +240,42 @@ class Localization(Node):
 
     def draw(self):
         import matplotlib.pyplot as plt
-        trajectories = [
-                {
-                    "trajectory": self.plot_gps,
-                    "options": "c.",
-                    "label": "GPS",
-                },
-                {
-                    "trajectory": self.plot_odo,
-                    "options": "g.",
-                    "label": "odometry+IMU",
-                },
-                {
-                    "trajectory": self.plot_pose3d,
-                    "options": "b.",
-                    "label": "pose3d",
-                },
-            ]
+        trajectories = []
         if self.algorithm == "lsqr":
             post_trajectory = self.tracker.get_post_process_trajectory()
             if post_trajectory is not None:
                 plot_post_trajectory = []
                 for xyz, ori in post_trajectory:
                     plot_post_trajectory.append(xyz)
-                trajectories = [{
-                            "trajectory": plot_post_trajectory,
-                            "options": "m.",
-                            "label": "post-processed",
-                        }] + trajectories
+                trajectories.append({
+                        "trajectory": plot_post_trajectory,
+                        "options": "m.",
+                        "label": "post-processed",
+                    })
+        if self.plot_rtk:
+            trajectories.append({
+                        "trajectory": self.plot_rtk,
+                        "options": "y.",
+                        "label": "RTK-GPS",
+                })
+        if self.plot_gps:
+            trajectories.append({
+                        "trajectory": self.plot_gps,
+                        "options": "c.",
+                        "label": "GPS",
+                })
+        if self.plot_odo:
+            trajectories.append({
+                        "trajectory": self.plot_odo,
+                        "options": "g.",
+                        "label": "odometry+IMU",
+                })
+        if self.plot_pose3d:
+            trajectories.append({
+                        "trajectory": self.plot_pose3d,
+                        "options": "b.",
+                        "label": "pose3d",
+                })
         for trajectory in trajectories:
             list_of_x = []
             list_of_y = []

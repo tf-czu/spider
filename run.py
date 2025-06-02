@@ -34,8 +34,10 @@ def main():
     #id_p2d = lookup_stream_id(path_log, "spider.pose2d")
     id_enc = lookup_stream_id(path_log, "spider.encoders")
 
+    id_rtk = lookup_stream_id(path_log, "rtk_gps.nmea_data")
+
     #list_of_stream_ids = [id_ori, id_gps, id_p2d, id_enc]
-    list_of_stream_ids = [id_ori, id_gps, id_enc]
+    list_of_stream_ids = [id_ori, id_gps, id_enc, id_rtk]
 
     localization = Localization(config, bus.handle('abc'))
     localization.verbose = True
@@ -52,6 +54,8 @@ def main():
             #    localization.on_pose2d(deserialize(data_raw))
             elif stream_id == id_enc:
                 localization.on_encoders(deserialize(data_raw))
+            elif stream_id == id_rtk:
+                localization.on_rtk(deserialize(data_raw))
             #counter += 1
             #if counter % 1000 == 0:
             #    print(counter)

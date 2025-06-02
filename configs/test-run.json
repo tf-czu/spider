@@ -64,7 +64,8 @@
     "links": [
               ["spider.encoders", "localization.encoders"],
               ["imu.orientation", "localization.orientation"],
-              ["gps.nmea_data", "localization.nmea"]
+              ["gps.nmea_data", "localization.nmea"],
+              ["rtk_gps.nmea_data", "localization.rtk"]
     ]
   }
 }
