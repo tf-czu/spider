@@ -1,4 +1,6 @@
+import math
 import copy
+import bisect
 
 def interpolate_xyz_in_time(time_1, xyz_1, time_2, xyz_2, time):
     """
@@ -31,52 +33,58 @@ class RootMeanSquareDeviationCounter:
         Coputes root mean square deviation from two asynchronously provided
             series of `[x,y]` or `[x,y,z]` positions.
 
-        The two series are referred to as X and Y;
-            they are stored in the attributes `list_of_X` and `list_of_Y`.
+        The two series are referred to as A and B;
+            they are stored in the attributes `list_of_A` and `list_of_B`.
 
         Attributes:
     """
 
     def __init__(self):
-        self.list_of_X = []
-        self.list_of_Y = []
-        self.synchronized = None
+        self.A_positions = []
+        self.B_positions = []
+        self.A_times = []
+        self.B_times = []
 
-    def add_X(self, time, xyz):
+    def add_A(self, time, xyz):
         """
             Args:
                 time (datetime.timedelta): time
                 xyz (list of float): position as a list of (three) coordinates
         """
-        self.list_of_X.append((time, xyz))
+        self.A_times.append(time)
+        self.A_positions.append(xyz)
 
-    def add_Y(self, time, xyz):
+    def add_B(self, time, xyz):
         """
             Args:
                 time (datetime.timedelta): time
                 xyz (list of float): position as a list of (three) coordinates
         """
-        self.list_of_Y.append((time, xyz))
+        self.B_times.append(time)
+        self.B_positions.append(xyz)
 
-    def synchronize(self):
-        """
-            Synchronizes the X and Y series in time.
+    def get_interpolated_B_position(self, t):
+        if t <= self.B_times[0]:
+            return self.B_positions[0]
+        if t >= self.B_times[-1]:
+            return self.B_positions[-1]
+        idx = bisect.bisect_right(self.B_times, t)
+        t_1 = self.B_times[idx - 1].total_seconds()
+        t_2 = self.B_times[idx].total_seconds()
+        xyz_1 = self.B_positions[idx - 1]
+        xyz_2 = self.B_positions[idx]
+        alpha = (t.total_seconds() - t_1) / (t_2 - t_1)
+        return [(1 - alpha)*xyz_1[i] + alpha*xyz_2[i] for i in range(3)]
 
-            Stores the result to the attribute `synchronized`.
-        """
-        i = j = 0
-        len_list_of_X = len(self.list_of_X[i])
-        len_list_of_Y = len(self.list_of_Y[j])
-        while i < len_list_of_X and j < len_list_of_Y:
-            X_time, X_xyz = self.list_of_X[i]
-            Y_time, Y_xyz = self.list_of_Y[j]
-            if X_time == Y_time:
-                self.synchronized
-                i += 1
-                j += 1
-            if X_time < Y_time:
-                pass
-
-    def get_rmsd(self):
-        return "abc"
+    def compute_rmsd(self, dimension = 3):
+        sum_sqr_dist = 0
+        n = 0
+        for k in range(len(self.A_times)):
+            t = self.A_times[k]
+            xyz_A = self.A_positions[k]
+            xyz_B = self.get_interpolated_B_position(t)
+            sqr_dist = sum([(xyz_A[i] - xyz_B[i])**2 for i in range(dimension)])
+            sum_sqr_dist += sqr_dist
+            n += 1
+        return math.sqrt(sum_sqr_dist / n)
 
