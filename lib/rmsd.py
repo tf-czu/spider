@@ -39,9 +39,9 @@ class RootMeanSquareDeviationCounter:
 
     def get_interpolated_B_position(self, t):
         if t <= self.B_times[0]:
-            return self.B_positions[0]
+            return None
         if t >= self.B_times[-1]:
-            return self.B_positions[-1]
+            return None
         idx = bisect.bisect_right(self.B_times, t)
         t_1 = self.B_times[idx - 1].total_seconds()
         t_2 = self.B_times[idx].total_seconds()
@@ -57,8 +57,9 @@ class RootMeanSquareDeviationCounter:
             t = self.A_times[k]
             xyz_A = self.A_positions[k]
             xyz_B = self.get_interpolated_B_position(t)
-            sqr_dist = sum([(xyz_A[i] - xyz_B[i])**2 for i in range(dimension)])
-            sum_sqr_dist += sqr_dist
-            n += 1
+            if xyz_B:
+                sqr_dist = sum([(xyz_A[i] - xyz_B[i])**2 for i in range(dimension)])
+                sum_sqr_dist += sqr_dist
+                n += 1
         return math.sqrt(sum_sqr_dist / n)
 
