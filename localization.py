@@ -9,6 +9,7 @@ from osgar.lib.route import Convertor as GPSConvertor
 from lib.tracker_lsqr import TrackerLeastSquares
 from lib.tracker_kalman import TrackerKalman
 from lib.tracker_kalman_gps_only import TrackerKalmanGPSOnly
+from lib.rmsd import RootMeanSquareDeviationCounter
 
 class Localization(Node):
     """
@@ -86,6 +87,10 @@ class Localization(Node):
         self.plot_pose3d = []
         self.counter_of_odometry_signal = 0
 
+        # Root Mean Square Deviation (computed, only if --verbose param is given)
+        self.rmsd_gps_rtk = RootMeanSquareDeviationCounter()
+        self.rmsd_pose3d_rtk = RootMeanSquareDeviationCounter()
+
     def on_nmea(self, data):
         """
             Process next data obtained from GPS.
@@ -122,6 +127,7 @@ class Localization(Node):
                 # for debugging
                 if self.verbose:
                     self.plot_gps.append(self.gps_xyz)
+                    self.rmsd_gps_rtk.add_A(self.time, self.gps_xyz)
 
     def on_rtk(self, data):
         """
@@ -142,6 +148,8 @@ class Localization(Node):
                 # for debugging
                 if self.verbose:
                     self.plot_rtk.append(self.rtk_xyz)
+                    self.rmsd_gps_rtk.add_B(self.time, self.rtk_xyz)
+                    self.rmsd_pose3d_rtk.add_B(self.time, self.rtk_xyz)
 
     def on_pose2d(self, data):
         """
@@ -187,6 +195,7 @@ class Localization(Node):
         if self.verbose:
             if self.pose3d is not None:
                 self.plot_pose3d.append(self.pose3d[0])
+                self.rmsd_pose3d_rtk.add_A(self.time, self.pose3d[0])
             self.plot_odo.append(self.tracker.get_odo_xyz())
 
     def on_encoders(self, data):
@@ -226,6 +235,7 @@ class Localization(Node):
                 xyz, ori = self.pose3d
                 if xyz is not None:
                     self.plot_pose3d.append(xyz)
+                    self.rmsd_pose3d_rtk.add_A(self.time, xyz)
             self.plot_odo.append(self.tracker.get_odo_xyz())
 
     def on_orientation(self, data):
@@ -239,52 +249,56 @@ class Localization(Node):
         self.tracker.input_orientation(self.time, data)
 
     def draw(self):
-        import matplotlib.pyplot as plt
-        trajectories = []
-        if self.algorithm == "lsqr":
-            post_trajectory = self.tracker.get_post_process_trajectory()
-            if post_trajectory is not None:
-                plot_post_trajectory = []
-                for xyz, ori in post_trajectory:
-                    plot_post_trajectory.append(xyz)
+        if self.verbose:
+            print("RMSD gps - rtk:   ", self.rmsd_gps_rtk.compute_rmsd(2))
+            print("RMSD pose3d - rtk:", self.rmsd_pose3d_rtk.compute_rmsd(2))
+            #
+            import matplotlib.pyplot as plt
+            trajectories = []
+            if self.algorithm == "lsqr":
+                post_trajectory = self.tracker.get_post_process_trajectory()
+                if post_trajectory is not None:
+                    plot_post_trajectory = []
+                    for xyz, ori in post_trajectory:
+                        plot_post_trajectory.append(xyz)
+                    trajectories.append({
+                            "trajectory": plot_post_trajectory,
+                            "options": "m.",
+                            "label": "post-processed",
+                        })
+            if self.plot_rtk:
                 trajectories.append({
-                        "trajectory": plot_post_trajectory,
-                        "options": "m.",
-                        "label": "post-processed",
+                            "trajectory": self.plot_rtk,
+                            "options": "y.",
+                            "label": "RTK-GPS",
                     })
-        if self.plot_rtk:
-            trajectories.append({
-                        "trajectory": self.plot_rtk,
-                        "options": "y.",
-                        "label": "RTK-GPS",
-                })
-        if self.plot_gps:
-            trajectories.append({
-                        "trajectory": self.plot_gps,
-                        "options": "c.",
-                        "label": "GPS",
-                })
-        if self.plot_odo:
-            trajectories.append({
-                        "trajectory": self.plot_odo,
-                        "options": "g.",
-                        "label": "odometry+IMU",
-                })
-        if self.plot_pose3d:
-            trajectories.append({
-                        "trajectory": self.plot_pose3d,
-                        "options": "b.",
-                        "label": "pose3d",
-                })
-        for trajectory in trajectories:
-            list_of_x = []
-            list_of_y = []
-            for pos in trajectory["trajectory"]:
-                if pos is not None:
-                    list_of_x.append(pos[0])
-                    list_of_y.append(pos[1])
-            plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
-        plt.legend()
-        plt.axis('equal')
-        plt.show()
+            if self.plot_gps:
+                trajectories.append({
+                            "trajectory": self.plot_gps,
+                            "options": "c.",
+                            "label": "GPS",
+                    })
+            if self.plot_odo:
+                trajectories.append({
+                            "trajectory": self.plot_odo,
+                            "options": "g.",
+                            "label": "odometry+IMU",
+                    })
+            if self.plot_pose3d:
+                trajectories.append({
+                            "trajectory": self.plot_pose3d,
+                            "options": "b.",
+                            "label": "pose3d",
+                    })
+            for trajectory in trajectories:
+                list_of_x = []
+                list_of_y = []
+                for pos in trajectory["trajectory"]:
+                    if pos is not None:
+                        list_of_x.append(pos[0])
+                        list_of_y.append(pos[1])
+                plt.plot(list_of_x, list_of_y, trajectory["options"], label = trajectory["label"])
+            plt.legend()
+            plt.axis('equal')
+            plt.show()
 
