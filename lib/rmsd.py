@@ -99,5 +99,8 @@ class RootMeanSquareDeviationCounter:
                 sqr_dist = sum([(xyz_A[i] - xyz_B[i])**2 for i in range(dimension)])
                 sum_sqr_dist += sqr_dist
                 n += 1
-        return math.sqrt(sum_sqr_dist / n)
+        if n > 0:
+            return math.sqrt(sum_sqr_dist / n)
+        else:
+            return None
 
