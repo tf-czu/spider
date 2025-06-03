@@ -11,6 +11,10 @@ class RootMeanSquareDeviationCounter:
             they are stored in the attributes `list_of_A` and `list_of_B`.
 
         Attributes:
+            A_positions (list of list of float): list of `[x, y, z]` positions
+            B_positions (list of list of float): list of `[x, y, z]` positions
+            A_times (list of datetime.timedelta): times of `A_positions`
+            B_times (list of datetime.timedelta): times of `B_positions`
     """
 
     def __init__(self):
@@ -21,6 +25,8 @@ class RootMeanSquareDeviationCounter:
 
     def add_A(self, time, xyz):
         """
+            Add a new (time, position) pair.
+
             Args:
                 time (datetime.timedelta): time
                 xyz (list of float): position as a list of (three) coordinates
@@ -30,6 +36,8 @@ class RootMeanSquareDeviationCounter:
 
     def add_B(self, time, xyz):
         """
+            Add a new (time, position) pair.
+
             Args:
                 time (datetime.timedelta): time
                 xyz (list of float): position as a list of (three) coordinates
@@ -38,6 +46,18 @@ class RootMeanSquareDeviationCounter:
         self.B_positions.append(xyz)
 
     def get_interpolated_B_position(self, t):
+        """
+            Computes an interpolated value in the B time-series.
+
+            The B time-series is given by `B_positions` and `B_times`.
+
+            Args:
+                t (datetime.timedelta): where to compute the interpolated value
+
+            Returns (list of float): interpolated position as an `[x, y, z]` list;
+                if `t` is outside of the range of the values in `B_times` then
+                `None` is returned
+        """
         if t < self.B_times[0]:
             return None
         if t > self.B_times[-1]:
@@ -53,6 +73,22 @@ class RootMeanSquareDeviationCounter:
         return [(1 - alpha)*xyz_1[i] + alpha*xyz_2[i] for i in range(3)]
 
     def compute_rmsd(self, dimension = 3):
+        """
+            Coputes root mean square deviation from the distance between the
+                positions accumulated in the A and B series.
+
+            The A and B series  are stored in:
+                `A_positions`, `B_positions`, `A_times`, and `B_times`.
+
+            The values of the B series are approximated by the linear
+                interpolation.
+
+            Args:
+                dimension (int): how many coordinates are to be involved in the
+                    `[x, y, z]` positions
+
+            Returns (float): root mean square deviation
+        """
         sum_sqr_dist = 0
         n = 0
         for k in range(len(self.A_times)):

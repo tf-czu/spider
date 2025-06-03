@@ -58,5 +58,3 @@ class TestRootMeanSquareDeviationCounter(unittest.TestCase):
                 rmsd_counter.add_B(timedelta(seconds = t), [t+1, t+1, 0])
         self.assertAlmostEqual(rmsd_counter.compute_rmsd(), math.sqrt(2))
 
-
-
