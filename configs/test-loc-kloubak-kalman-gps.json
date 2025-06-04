@@ -15,11 +15,14 @@
           "init": {"port": "/dev/ttyUSB0", "speed": 4800}
       },
       "localization": {
-	      "driver": "gps_loc:GpsLocalization",
-	      "in": ["nmea_data"],
+	      "driver": "localization:Localization",
+	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
 	      "out": ["pose3d"],
 	      "init":{
-            "gps_sd": [0.03, 0.03, 0.09]
+            "algorithm": "kalman gps",
+            "enc scale": 0.00218,
+            "gps err": [2, 2, 6],
+            "initial dumb distance": 0.01
           }
       },
        "oak_d": {
@@ -52,9 +55,9 @@
       }
     },
     "links": [
-              ["gps_serial.raw", "gps.raw"],
-              ["gps.nmea_data", "localization.nmea_data"],
-              ["oak_d.depth", "localization.timer"]
+              ["kloubak.encoders", "localization.encoders"],
+              ["imu.orientation", "localization.orientation"],
+              ["gps.nmea_data", "localization.nmea"]
     ]
   }
 }
