@@ -52,3 +52,8 @@
     `[x,y]` or `[x,y,z]` positions.
   - Utilized by `localization.py` to computed RMSD between the resulting
     trajectory and a precise RTK-GPS which serves as a reference.
+
+## Notes
+
+* RTK antény proti druhé anténě:
+    x = -430 mm, y = 30 mm (tj. vzadu a mírně vlevo)
