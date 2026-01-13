@@ -10,7 +10,7 @@
           "init": {
             "max_speed": 0.3,
             "dist": 1.0,
-            "timeout": 10
+            "timeout": 60
           }
       },
 
