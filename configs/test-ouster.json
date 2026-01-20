@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "camera": {
+          "driver": "drivers.lidar_ouster:LidarOuster",
+          "in": [],
+          "out": ["3dscan"],
+          "init": {
+            "inputfile": "milovice_12025041_1106_OS-1-32-U3_122328000988"
+          }
+      }
+    },
+    "links": []
+  }
+}
