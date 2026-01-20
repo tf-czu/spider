@@ -161,3 +161,4 @@ __pycache__/
 ##.idea/
 
 venv/
+data/
