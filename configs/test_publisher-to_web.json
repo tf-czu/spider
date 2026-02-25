@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "log": {
+        "driver": "replay",
+        "init": {
+          "filename": "logs/spider-gps-cameras-250401_091752.log",
+          "pins":{
+            "camera_front.color": "front:null",
+            "camera_right.color": "right:null",
+            "camera_left.color": "left:null",
+            "localization.pose3d": "pose3d:null"
+          },
+          "sleep_channel": ["pose3d", 0.05]
+        }
+      },
+      "to_server": {
+        "driver": "osgar.drivers.push:Push",
+        "init": {
+          "bind": false,
+          "endpoint": "tcp://127.0.0.1:5560"
+        }
+      }
+    },
+    "links":[
+      ["log.front", "to_server.front"],
+      ["log.right", "to_server.right"],
+      ["log.left", "to_server.left"],
+      ["log.pose3d", "to_server.pose3d"]
+    ]
+  }
+}
