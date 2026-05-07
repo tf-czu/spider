@@ -47,6 +47,15 @@
     "links": [["spider.can", "can.can"],
               ["can.can", "spider.can"],
               ["serial.raw", "can.raw"],
-              ["can.raw", "serial.raw"]]
-  }
+              ["can.raw", "serial.raw"],
+
+              ["receiver.desired_speed", "spider.desired_speed"],
+              ["receiver.reset", "spider.reset"],
+
+              ["spider.status", "transmitter.transmitter"],
+              ["spider.encoders", "transmitter.encoders"],
+              ["spider.pose2d", "transmitter.pose2d"],
+              ["spider.bumpers", "transmitter.bumpers"]
+    ]
+  } 
 }

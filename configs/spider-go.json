@@ -10,39 +10,40 @@
           "init": {
             "max_speed": 0.3,
             "dist": 1.0,
-            "timeout": 60
+            "timeout": 120,
+            "stop_timeout": 5
           }
       },
 
-      "spider": {
-          "driver": "spider",
-          "in": ["can", "move"],
-          "out": ["can"],
-          "init": {}
+      "reset": {
+        "driver": "robot.spider_reset:Reset",
+        "init": {}
       },
-      "can": {
-          "driver": "can",
-          "in": ["raw", "can"],
-          "out": ["can", "raw"],
-          "init": {}
+
+       "transmitter": {
+        "driver": "osgar.drivers.push:Push",
+          "init": {
+            "pubsub": true,
+            "endpoint": "tcp://127.0.0.1:5556"
+          }
       },
-      "serial": {
-          "driver": "serial",
-          "in": ["raw"],
-          "out": ["raw"],
-          "init": {"port": "/dev/ttyS0", "speed": 115200,
-                   "rtscts":true, "reset":true}
+
+      "receiver": {
+        "driver": "osgar.drivers.pull:Pull",
+        "init": {
+          "pubsub": true,
+          "endpoint": "tcp://127.0.0.1:5555",
+          "outputs": [
+            "status", "encoders", "pose2d", "bumpers"
+          ]
+        }
       }
 
     },
     "links": [
-              ["app.desired_speed", "spider.desired_speed"],
-              ["spider.pose2d", "app.pose2d"],
-
-              ["spider.can", "can.can"],
-              ["can.can", "spider.can"],
-              ["serial.raw", "can.raw"],
-              ["can.raw", "serial.raw"]
+              ["app.desired_speed", "transmitter.desired_speed"],
+              ["receiver.pose2d", "app.pose2d"],
+              ["reset.reset", "transmitter.reset"]
     ]
   }
 }
