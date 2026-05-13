@@ -37,13 +37,78 @@
             "status", "encoders", "pose2d", "bumpers"
           ]
         }
+      },
+
+      "lidar": {
+          "driver": "osgar.drivers.ouster_lidar:OusterLidar",
+          "init": {
+            "lidar_ip": "192.168.1.91",
+            "lidar_mode": "MODE_1024x10",
+            "azimuth_window": null
+          }
+      },
+
+      "imu": {
+          "driver": "imu",
+          "in": ["raw"],
+          "out": ["orientation", "rotation", "data"],
+          "init": {}
+      },
+      "imu_tcp": {
+          "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.12",
+              "port": 10002,
+              "bufsize": 2000
+          }
+      },
+
+      "gps_tcp": {
+          "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.12",
+              "port": 10001,
+              "bufsize": 2000
+          }
+      },
+      "gps": {
+        "driver": "gps",
+        "init": {}
+      },
+      "rtk_filter": {
+        "driver": "rtk_filter",
+          "in": ["nmea"],
+          "out": ["filtered"],
+          "init": {
+        }
+      },
+      "rtk_modem": {
+        "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.13",
+              "port": 10001,
+              "bufsize": 2000
+        }
       }
 
     },
     "links": [
               ["app.desired_speed", "transmitter.desired_speed"],
               ["receiver.pose2d", "app.pose2d"],
-              ["reset.reset", "transmitter.reset"]
+              ["reset.reset", "transmitter.reset"],
+
+              ["imu_tcp.raw", "imu.raw"],
+
+              ["gps_tcp.raw", "gps.raw"],
+              ["gps_tcp.raw", "rtk_filter.nmea"],
+              ["rtk_filter.filtered", "rtk_modem.raw"],
+              ["rtk_modem.raw", "gps_tcp.raw"]
     ]
   }
 }
