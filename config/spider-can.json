@@ -52,7 +52,7 @@
               ["receiver.desired_speed", "spider.desired_speed"],
               ["receiver.reset", "spider.reset"],
 
-              ["spider.status", "transmitter.transmitter"],
+              ["spider.status", "transmitter.status"],
               ["spider.encoders", "transmitter.encoders"],
               ["spider.pose2d", "transmitter.pose2d"],
               ["spider.bumpers", "transmitter.bumpers"]
