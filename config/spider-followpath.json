@@ -104,7 +104,7 @@
 
     },
     "links": [
-              ["app.desired_speed", "transmitter.desired_speed"],
+              ["app.desired_speed", "transmitter.move"],
               ["localization.pose3d", "app.pose3d"],
               ["reset.reset", "transmitter.reset"],
 
