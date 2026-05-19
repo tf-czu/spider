@@ -38,7 +38,7 @@
           "pubsub": true,
           "endpoint": "tcp://*:5556",
           "outputs": [
-            "desired_speed", "reset"
+            "move", "reset"
           ]
         }
       }
