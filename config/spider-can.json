@@ -49,7 +49,7 @@
               ["serial.raw", "can.raw"],
               ["can.raw", "serial.raw"],
 
-              ["receiver.desired_speed", "spider.desired_speed"],
+              ["receiver.move", "spider.move"],
               ["receiver.reset", "spider.reset"],
 
               ["spider.status", "transmitter.status"],
