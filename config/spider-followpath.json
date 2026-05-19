@@ -106,10 +106,9 @@
     "links": [
               ["app.desired_speed", "transmitter.desired_speed"],
               ["localization.pose3d", "app.pose3d"],
-              ["receiver.pose2d", "app.pose2d"],
               ["reset.reset", "transmitter.reset"],
 
-              ["spider.pose2d", "localization.odom"],
+              ["receiver.pose2d", "localization.odom"],
               ["imu.orientation", "localization.orientation"],
 
               ["imu_tcp.raw", "imu.raw"],
