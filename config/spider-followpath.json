@@ -104,8 +104,8 @@
 
     },
     "links": [
-              ["app.desired_speed", "transmitter.move"],
-              ["localization.pose3d", "app.pose3d"],
+              ["app.desired_speed", "transmitter.desired_steering"],
+              ["receiver.pose2d", "app.pose2d"],
               ["reset.reset", "transmitter.reset"],
 
               ["receiver.pose2d", "localization.odom"],
