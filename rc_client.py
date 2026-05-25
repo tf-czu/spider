@@ -11,7 +11,7 @@ class RcClient:
         self.bus = bus
         self.bus.register("desired_steering")
         self.verbose = False
-        self.max_speed = 1.0
+        self.max_speed = 0.7
         import pygame
         global pygame
 
