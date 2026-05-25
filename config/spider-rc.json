@@ -109,27 +109,9 @@
        "camera_front": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
           "init": {
-            "fps": 5,
+            "fps": 10,
             "is_color": true,
             "cam_ip": "192.168.1.62",
-            "color_resolution": "THE_800_P"
-          }
-      },
-      "camera_right": {
-          "driver": "osgar.drivers.oak_camera:OakCamera",
-          "init": {
-            "fps": 5,
-            "is_color": true,
-            "cam_ip": "192.168.1.63",
-            "color_resolution": "THE_800_P"
-          }
-      },
-      "camera_left": {
-          "driver": "osgar.drivers.oak_camera:OakCamera",
-          "init": {
-            "fps": 5,
-            "is_color": true,
-            "cam_ip": "192.168.1.64",
             "color_resolution": "THE_800_P"
           }
       },
@@ -142,7 +124,7 @@
         "driver": "serial",
         "in": ["raw"],
         "out": ["raw"],
-        "init": {"port": "/dev/ttyACM0", "speed": 115200}
+        "init": {"port": "/dev/ttyACM1", "speed": 115200}
       }
 
     },
