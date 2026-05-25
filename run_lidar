@@ -1,0 +1,4 @@
+#python3 -m osgar.replay --module lidar_interpreter --config ./configs/test-lidar-spider.json -F --verbose --draw $*
+
+python3 -m osgar.replay 31_spider-go-260513_155622.log --module lidar_interpreter --config ./configs/test-lidar-spider.json
+
