@@ -25,7 +25,7 @@ class LidarInterpreter(Node):
             Args:
                 data (list of list of int): array of size 32 x 1024
         """
-        print(np.array(data).shape)
+        print(self.time, np.array(data).shape)
 
     def draw(self):
         pass
