@@ -2,3 +2,5 @@
 
 python3 -m osgar.replay 31_spider-go-260513_155622.log --module lidar_interpreter --config ./configs/test-lidar-spider.json
 
+#python3 -m osgar.replay $1 -260513_155622.log --module lidar_interpreter --config ./configs/test-lidar-spider.json
+
