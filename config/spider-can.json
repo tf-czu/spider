@@ -38,7 +38,7 @@
           "pubsub": true,
           "endpoint": "tcp://*:5556",
           "outputs": [
-            "move", "reset"
+            "desired_steering", "reset", "desired_speed"
           ]
         }
       }
@@ -49,7 +49,8 @@
               ["serial.raw", "can.raw"],
               ["can.raw", "serial.raw"],
 
-              ["receiver.move", "spider.move"],
+              ["receiver.desired_steering", "spider.desired_steering"],
+              ["receiver.desired_speed", "spider.desired_speed"],
               ["receiver.reset", "spider.reset"],
 
               ["spider.status", "transmitter.status"],
