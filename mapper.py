@@ -107,7 +107,8 @@ class Mapper(Node):
             points = self.l2pc.convert(data)
 
             # update terrain interpretation pipeline
-            self.interpreter.update(self.time, points)
+            output = self.interpreter.update(self.time, points)
+            print("output:", output)
 
     def on_lidar_reflectivity(self, data):
         """
