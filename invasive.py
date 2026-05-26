@@ -14,36 +14,24 @@ from osgar.lib.route import Convertor as GPSConvertor
 from osgar.lib import quaternion
 
 
-def geo_length(pos1, pos2):
-    "return distance on sphere for two integer positions in milliseconds"
-    x_scale = math.cos(math.radians(pos1[0]/3600000))
-    scale = 40000000/(360*3600000)
-    return math.hypot((pos2[0] - pos1[0])*x_scale, pos2[1] - pos1[1]) * scale
-
-def geo_angle(pos1, pos2):
-    if geo_length(pos1, pos2) < 1.0:
-        return None
-    x_scale = math.cos(math.radians(pos1[0]/3600000))
-    return math.atan2(pos2[1] - pos1[1], (pos2[0] - pos1[0])*x_scale)
-
-
 class Invasive(Node):
     def __init__(self, config, bus):
         super().__init__(config, bus)
         bus.register('desired_steering', 'scan')
-        self.max_speed = config.get('max_speed', 0.2)
+        self.max_speed = config.get('max_speed', 0.5)
         self.waypoints = config.get('waypoints', [])
-        self.start_pose = None
+        self.start_geo_pose = None
         self.last_pose = None
         self.last_geo_pose = None
         self.gps_converter = None
         self.start_heading = None
+        self.start_q_heading = None
         self.heading = None
         self.verbose = False
 
     def send_speed_cmd(self, speed, steering_angle):  # angle in radians
         if self.verbose:
-            print("steering_angle: ", math.degrees(steering_angle))
+            print(f"{self.time}, speed: {speed}, steering_angle: {math.degrees(steering_angle)}")
         return self.bus.publish(
             'desired_steering',
             [round(speed * 1000), round(math.degrees(steering_angle) * 100)]
@@ -54,13 +42,19 @@ class Invasive(Node):
         pass
 
     def on_pose2d(self, data):
-       self.last_pose = data
+        if data is not None:
+            x, y, __ = data
+            self.last_pose = [x/1000, y/1000]  # mm to m
 
     def on_pose3d(self, data):
         if self.start_heading is not None:
             [x, y, z], quat = data
-            q_heading = quaternion.heading(quat)
-            self.heading = q_heading - self.start_heading
+            if self.start_q_heading is None:
+                self.start_q_heading = quaternion.heading(quat)
+                self.heading = 0
+            else:
+                q_heading = quaternion.heading(quat)
+                self.heading = (q_heading - self.start_q_heading) - self.start_heading  # diff q_heading - initial gps_heading
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -78,19 +72,20 @@ class Invasive(Node):
     def go_straight(self, dist):
         print(self.time, 'Go straight')
         assert self.last_pose is not None
-        self.start_pose = self.last_pose
+        start_pose = self.last_pose
         while True:
             if self.update() == 'pose2d':
-                if math.hypot(self.start_pose[0] - self.last_pose[0],
-                              self.start_pose[1] - self.last_pose[1]) < dist:
+                if math.hypot(start_pose[0] - self.last_pose[0],
+                              start_pose[1] - self.last_pose[1]) < dist:
                     self.send_speed_cmd(self.max_speed, 0)
                 else:
                     self.send_speed_cmd(0, 0)
                     break
 
-    def get_heading(self, geo_pose):
-        x, y = self.gps_converter.geo2planar((geo_pose[0], geo_pose[1]))
-        return math.atan2(x, y)
+    def get_geo_angle(self,start_geo_pose, geo_pose):
+        lon_diff = geo_pose[0] - start_geo_pose[0]
+        lat_diff = geo_pose[1] - start_geo_pose[1]
+        return math.atan2(lat_diff, lon_diff)
 
     def dist2destination(self, waypoint):
         x0, y0 = self.gps_converter.geo2planar((self.last_geo_pose[0], self.last_geo_pose[1]))
@@ -103,7 +98,7 @@ class Invasive(Node):
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
             if self.update() == 'pose2d' and self.heading is not None:
-                heading_diff = self.heading - self.get_heading(waypoint)  # radians
+                heading_diff = self.heading - self.get_geo_angle(self.last_geo_pose, waypoint)  # radians
                 self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
@@ -111,8 +106,9 @@ class Invasive(Node):
         try:
             self.wait(1)
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
+            self.start_geo_pose = self.last_geo_pose
             self.go_straight(5)
-            self.start_heading = self.get_heading((self.last_geo_pose[0], self.last_geo_pose[1]))
+            self.start_heading = self.get_geo_angle(self.start_geo_pose, self.last_geo_pose)
             for waypoint in self.waypoints:
                 self.navigate_to_waypoints(waypoint)
         except BusShutdownException:
@@ -122,5 +118,3 @@ class Invasive(Node):
     def draw(self):
         # import matplotlib.pyplot as plt
         pass
-
-# vim: expandtab sw=4 ts=4
