@@ -11,6 +11,7 @@ from osgar.node import Node
 from osgar.lib.mathex import normalizeAnglePIPI
 from osgar.bus import BusShutdownException
 from osgar.lib.route import Convertor as GPSConvertor
+from osgar.lib import quaternion
 
 
 def geo_length(pos1, pos2):
@@ -36,6 +37,8 @@ class Invasive(Node):
         self.last_pose = None
         self.last_geo_pose = None
         self.gps_converter = None
+        self.start_heading = None
+        self.heading = None
         self.verbose = False
 
     def send_speed_cmd(self, speed, steering_angle):  # angle in radians
@@ -54,7 +57,10 @@ class Invasive(Node):
        self.last_pose = data
 
     def on_pose3d(self, data):
-        pass
+        if self.start_heading is not None:
+            [x, y, z], quat = data
+            q_heading = quaternion.heading(quat)
+            self.heading = q_heading - self.start_heading
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -84,7 +90,7 @@ class Invasive(Node):
 
     def get_heading(self, geo_pose):
         x, y = self.gps_converter.geo2planar((geo_pose[0], geo_pose[1]))
-        return math.atan2(y, x)
+        return math.atan2(x, y)
 
     def dist2destination(self, waypoint):
         x0, y0 = self.gps_converter.geo2planar((self.last_geo_pose[0], self.last_geo_pose[1]))
@@ -96,8 +102,8 @@ class Invasive(Node):
         while self.dist2destination(waypoint) > 1:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
-            if self.update() == 'pose2d':
-                heading_diff = self.get_heading(self.last_geo_pose) - self.get_heading(waypoint)  # radians
+            if self.update() == 'pose2d' and self.heading is not None:
+                heading_diff = self.heading - self.get_heading(waypoint)  # radians
                 self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
@@ -106,6 +112,7 @@ class Invasive(Node):
             self.wait(1)
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             self.go_straight(5)
+            self.start_heading = self.get_heading((self.last_geo_pose[0], self.last_geo_pose[1]))
             for waypoint in self.waypoints:
                 self.navigate_to_waypoints(waypoint)
         except BusShutdownException:
