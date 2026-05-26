@@ -12,7 +12,9 @@
             }
         },
         "links": [
-            ["lidar.scan3d", "mapper.lidar_scan3d"]
+            ["lidar.metadata", "mapper.lidar_metadata"],
+            ["lidar.scan3d", "mapper.lidar_scan3d"],
+            ["lidar.reflectivity", "mapper.lidar_reflectivity"]
         ]
     }
 }
