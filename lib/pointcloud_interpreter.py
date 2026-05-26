@@ -1,10 +1,12 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
+import ouster.sdk as ous
 
-class LidarInterpreter:
+class PointCloudInterpreter:
     """
-        Reads Lidar scans and returns: obstacle map, slope map.
+        Reads point-cloud scans and returns:
+            traversability map, obstacle map, slope map.
     """
 
     def __init__(self, output_frequency = 1.0):
