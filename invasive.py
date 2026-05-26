@@ -51,9 +51,10 @@ class Invasive(Node):
             [x, y, z], quat = data
             if self.start_q_heading is None:
                 self.start_q_heading = quaternion.heading(quat)
-                self.heading = 0
+                self.heading = self.start_heading
             else:
                 q_heading = quaternion.heading(quat)
+                # print(q_heading, self.start_q_heading, self.start_heading )
                 self.heading = (q_heading - self.start_q_heading) - self.start_heading  # diff q_heading - initial gps_heading
 
     def on_nmea_data(self, data):
@@ -98,7 +99,8 @@ class Invasive(Node):
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
             if self.update() == 'pose2d' and self.heading is not None:
-                heading_diff = self.heading - self.get_geo_angle(self.last_geo_pose, waypoint)  # radians
+                heading_diff = normalizeAnglePIPI(self.heading - self.get_geo_angle(self.last_geo_pose, waypoint))  # radians
+                # print("smer wp", self.get_geo_angle(self.last_geo_pose, waypoint), heading_diff)
                 self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
