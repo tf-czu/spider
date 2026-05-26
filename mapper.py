@@ -4,7 +4,7 @@ import numpy as np
 
 from osgar.node import Node
 
-class LidarInterpreter(Node):
+class Mapper(Node):
     """
         Reads Lidar data and returns: obstacle map, slope map.
     """

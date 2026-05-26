@@ -2,8 +2,8 @@
     "version": 2,
     "robot": {
         "modules": {
-            "lidar_interpreter": {
-                "driver": "lidar_interpreter:LidarInterpreter",
+            "mapper": {
+                "driver": "mapper:Mapper",
                 "in": ["komentar pro input"],
                 "out": ["komentar pro output"],
                 "init":{
@@ -12,7 +12,7 @@
             }
         },
         "links": [
-            ["lidar.scan3d", "lidar_interpreter.lidar_scan3d"]
+            ["lidar.scan3d", "mapper.lidar_scan3d"]
         ]
     }
 }
