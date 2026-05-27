@@ -145,7 +145,7 @@ class Mapper(Node):
         if self.verbose:
             import matplotlib.pyplot as plt
 
-            maps = self.draw_slope_maps
+            maps = self.draw_dif_maps
             timestamps = self.draw_timestamps
 
             if not maps:

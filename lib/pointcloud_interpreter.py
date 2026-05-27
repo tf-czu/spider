@@ -203,16 +203,12 @@ class PointCloudInterpreter:
                     continue
 
                 count_map[ix, iy] = len(values)
-                min_map[ix, iy] = np.percentile(
+                low, high = np.percentile(
                     values,
-                    self.lower_percentile,
-                    method = "lower",
+                    [self.lower_percentile, self.upper_percentile],
                 )
-                max_map[ix, iy] = np.percentile(
-                    values,
-                    self.upper_percentile,
-                    method = "higher",
-                )
+                min_map[ix, iy] = low
+                max_map[ix, iy] = high
 
         return min_map, max_map, count_map
 
@@ -237,7 +233,8 @@ class PointCloudInterpreter:
                 2D map of height gradient in the Y direction.
 
             slope_map (numpy.array):
-                2D map containing the magnitude of the local terrain slope.
+                2D map containing the magnitude of the terrain gradient
+                (tangent of the slope angle in the steepest direction)
         """
 
         nx, ny = z_map.shape
