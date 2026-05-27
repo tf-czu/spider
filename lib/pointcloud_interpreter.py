@@ -2,7 +2,6 @@
 
 import numpy as np
 
-
 class PointCloudInterpreter:
     """
     Interprets incoming point clouds and produces terrain maps.
@@ -64,6 +63,12 @@ class PointCloudInterpreter:
         self.resolution = 0.5
         self.lower_percentile = 10
         self.upper_percentile = 90
+
+        # reservoir sampling
+        #   (to lower the computational cost when computing the percentiles
+        #   in build_percentile_height_maps())
+        self.use_reservoir_sampling = False
+        self.reservoir_size = 300
 
     def update(self, timestamp, points):
         """
@@ -153,8 +158,11 @@ class PointCloudInterpreter:
         Builds percentile-based height maps from a point cloud.
 
         The point cloud is projected into a 2D grid in the XY plane.
-        For each grid cell, all Z values are collected and robust lower
+        For each grid cell, Z values are collected and robust lower
         and upper height estimates are computed using percentiles.
+
+        If reservoir sampling is enabled, each grid cell stores only
+        a limited random sample of observed Z values.
 
         Args:
             points (numpy.array):
@@ -168,14 +176,14 @@ class PointCloudInterpreter:
                 2D map containing upper-percentile height estimates.
 
             count_map (numpy.array):
-                2D map containing the number of points accumulated
+                2D map containing the total number of points observed
                 in each grid cell.
         """
-
         nx = int((self.x_max - self.x_min) / self.resolution)
         ny = int((self.y_max - self.y_min) / self.resolution)
 
         z_values = [[[] for _ in range(ny)] for _ in range(nx)]
+        z_seen_count = np.zeros((nx, ny), dtype=int)
 
         for point in points:
             x, y, z = point
@@ -189,7 +197,20 @@ class PointCloudInterpreter:
             iy = int((y - self.y_min) / self.resolution)
 
             if 0 <= ix < nx and 0 <= iy < ny:
-                z_values[ix][iy].append(z)
+                z_seen_count[ix, iy] += 1
+
+                if not self.use_reservoir_sampling:
+                    z_values[ix][iy].append(z)
+                else:
+                    cell = z_values[ix][iy]
+                    seen = z_seen_count[ix, iy]
+
+                    if len(cell) < self.reservoir_size:
+                        cell.append(z)
+                    else:
+                        j = np.random.randint(0, seen)
+                        if j < self.reservoir_size:
+                            cell[j] = z
 
         min_map = np.full((nx, ny), np.nan)
         max_map = np.full((nx, ny), np.nan)
@@ -202,13 +223,15 @@ class PointCloudInterpreter:
                 if not values:
                     continue
 
-                count_map[ix, iy] = len(values)
                 low, high = np.percentile(
                     values,
                     [self.lower_percentile, self.upper_percentile],
+                    method="linear",
                 )
+
                 min_map[ix, iy] = low
                 max_map[ix, iy] = high
+                count_map[ix, iy] = z_seen_count[ix, iy]
 
         return min_map, max_map, count_map
 
