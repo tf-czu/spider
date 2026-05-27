@@ -68,10 +68,11 @@ class Mapper(Node):
         self.l2pc = None
 
         # data for draw()
+        self.draw_timestamps = []
         self.draw_min_maps = []
         self.draw_max_maps = []
         self.draw_dif_maps = []
-        self.draw_timestamps = []
+        self.draw_slope_maps = []
 
     def on_lidar_metadata(self, data):
         """
@@ -119,6 +120,7 @@ class Mapper(Node):
                 self.draw_min_maps.append(output["min_map"])
                 self.draw_max_maps.append(output["max_map"])
                 self.draw_dif_maps.append(output["dif_map"])
+                self.draw_slope_maps.append(output["slope_map"])
                 print(len(self.draw_timestamps))
 
     def on_lidar_reflectivity(self, data):
@@ -143,12 +145,12 @@ class Mapper(Node):
         if self.verbose:
             import matplotlib.pyplot as plt
 
-            if not self.draw_dif_maps:
+            maps = self.draw_slope_maps
+            timestamps = self.draw_timestamps
+
+            if not maps:
                 print("No maps to draw.")
                 return
-
-            maps = self.draw_dif_maps
-            timestamps = self.draw_timestamps
 
             fig, ax = plt.subplots()
             idx = 0

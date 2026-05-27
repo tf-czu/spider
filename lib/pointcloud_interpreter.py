@@ -124,16 +124,19 @@ class PointCloudInterpreter:
         points = np.vstack(self.list_of_accumulated_point_clouds)
 
         min_map, max_map, count_map = self.build_percentile_height_maps(points)
+        dzdx_map, dzdy_map, slope_map = self.build_slope_map(min_map)
 
         dif_map = max_map - min_map
         dif_map[count_map == 0] = np.nan
 
         output = {
             "timestamp": timestamp,
-            "count_map": count_map,
             "min_map": min_map,
             "max_map": max_map,
             "dif_map": dif_map,
+            "dzdx_map": dzdx_map,
+            "dzdy_map": dzdy_map,
+            "slope_map": slope_map,
         }
 
         self.fifo_of_outputs.append(output)
@@ -189,3 +192,30 @@ class PointCloudInterpreter:
                 )
 
         return min_map, max_map, count_map
+
+    def build_slope_map(self, z_map):
+        nx, ny = z_map.shape
+
+        dzdx_map = np.full((nx, ny), np.nan)
+        dzdy_map = np.full((nx, ny), np.nan)
+        slope_map = np.full((nx, ny), np.nan)
+
+        for ix in range(1, nx - 1):
+            for iy in range(1, ny - 1):
+                zl = z_map[ix - 1, iy]
+                zr = z_map[ix + 1, iy]
+                zd = z_map[ix, iy - 1]
+                zu = z_map[ix, iy + 1]
+
+                if not np.isnan(zl) and not np.isnan(zr):
+                    dzdx_map[ix, iy] = (zr - zl) / (2.0 * self.resolution)
+
+                if not np.isnan(zd) and not np.isnan(zu):
+                    dzdy_map[ix, iy] = (zu - zd) / (2.0 * self.resolution)
+
+                if not np.isnan(dzdx_map[ix, iy]) and not np.isnan(dzdy_map[ix, iy]):
+                    slope_map[ix, iy] = np.sqrt(
+                        dzdx_map[ix, iy] ** 2 + dzdy_map[ix, iy] ** 2
+                    )
+
+        return dzdx_map, dzdy_map, slope_map
