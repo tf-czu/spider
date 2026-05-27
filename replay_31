@@ -1,6 +1,6 @@
 #python3 -m osgar.replay --module mapper --config ./configs/test-lidar-spider.json -F --verbose --draw $*
 
-python3 -m osgar.replay 31_spider-go-260513_155622.log --module mapper --config ./configs/test-lidar-spider.json
+python3 -m osgar.replay 31_spider-go-260513_155622.log --module mapper --config ./configs/test-lidar-spider.json --verbose --draw
 
 #python3 -m osgar.replay $1 -260513_155622.log --module mapper --config ./configs/test-lidar-spider.json
 

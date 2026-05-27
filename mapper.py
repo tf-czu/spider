@@ -67,6 +67,12 @@ class Mapper(Node):
         # initialized after lidar metadata are received
         self.l2pc = None
 
+        # data for draw()
+        self.draw_min_maps = []
+        self.draw_max_maps = []
+        self.draw_dif_maps = []
+        self.draw_timestamps = []
+
     def on_lidar_metadata(self, data):
         """
         Processes lidar geometry metadata.
@@ -108,7 +114,12 @@ class Mapper(Node):
 
             # update terrain interpretation pipeline
             output = self.interpreter.update(self.time, points)
-            print("output:", output)
+            if self.verbose and output is not None:
+                self.draw_timestamps.append(output["timestamp"])
+                self.draw_min_maps.append(output["min_map"])
+                self.draw_max_maps.append(output["max_map"])
+                self.draw_dif_maps.append(output["dif_map"])
+                print(len(self.draw_timestamps))
 
     def on_lidar_reflectivity(self, data):
         """
@@ -129,4 +140,47 @@ class Mapper(Node):
             pass
 
     def draw(self):
-        pass
+        if self.verbose:
+            import matplotlib.pyplot as plt
+
+            if not self.draw_dif_maps:
+                print("No maps to draw.")
+                return
+
+            maps = self.draw_dif_maps
+            timestamps = self.draw_timestamps
+
+            fig, ax = plt.subplots()
+            idx = 0
+
+            img = ax.imshow(
+                maps[idx].T,
+                origin="lower",
+                aspect="equal",
+                vmin=0.0,
+                vmax=1.0,
+            )
+
+            cbar = plt.colorbar(img, ax=ax, label="Height difference [m]")
+
+            title = ax.set_title(f"Frame {idx + 1}/{len(maps)}  t={timestamps[idx]}")
+
+            def draw_update_image():
+                img.set_data(maps[idx].T)
+                title.set_text(f"Frame {idx + 1}/{len(maps)}  t={timestamps[idx]}")
+                fig.canvas.draw_idle()
+
+            def draw_on_key(event):
+                nonlocal idx
+
+                if event.key == "right":
+                    idx = min(idx + 1, len(maps) - 1)
+                    draw_update_image()
+
+                elif event.key == "left":
+                    idx = max(idx - 1, 0)
+                    draw_update_image()
+
+            fig.canvas.mpl_connect("key_press_event", draw_on_key)
+
+            plt.show()
