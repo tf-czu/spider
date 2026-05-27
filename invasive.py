@@ -17,8 +17,8 @@ from osgar.lib import quaternion
 class Invasive(Node):
     def __init__(self, config, bus):
         super().__init__(config, bus)
-        bus.register('desired_steering', 'scan')
-        self.max_speed = config.get('max_speed', 0.5)
+        bus.register('desired_steering')
+        self.max_speed = config.get('max_speed', 0.4)
         self.waypoints = config.get('waypoints', [])
         self.start_geo_pose = None
         self.last_pose = None
@@ -50,12 +50,14 @@ class Invasive(Node):
         if self.start_heading is not None:
             [x, y, z], quat = data
             if self.start_q_heading is None:
-                self.start_q_heading = quaternion.heading(quat)
+                self.start_q_heading = -quaternion.heading(quat)  # IMU is probably inverted ?
                 self.heading = self.start_heading
             else:
-                q_heading = quaternion.heading(quat)
-                # print(q_heading, self.start_q_heading, self.start_heading )
+                q_heading = -quaternion.heading(quat)  # IMU is probably inverted ?
                 self.heading = (q_heading - self.start_q_heading) - self.start_heading  # diff q_heading - initial gps_heading
+                if self.verbose:
+                    print(f"{self.time} Orientation - quaternion: {quat}, q_heading: {q_heading}, "
+                          f"start heading (gps based): {self.start_heading}")
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -94,13 +96,15 @@ class Invasive(Node):
         return math.hypot(x0-x, y0-y)
 
     def navigate_to_waypoints(self, waypoint):
-        print(self.dist2destination(waypoint))
+        print(f"Navigate to wp ({waypoint}), distance: {self.dist2destination(waypoint)}")
         while self.dist2destination(waypoint) > 1:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
             if self.update() == 'pose2d' and self.heading is not None:
                 heading_diff = normalizeAnglePIPI(self.heading - self.get_geo_angle(self.last_geo_pose, waypoint))  # radians
-                # print("smer wp", self.get_geo_angle(self.last_geo_pose, waypoint), heading_diff)
+                if self.verbose:
+                    print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
+                          f"heading_diff: {heading_diff}")
                 self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
