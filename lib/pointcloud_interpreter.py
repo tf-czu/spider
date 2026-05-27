@@ -64,11 +64,13 @@ class PointCloudInterpreter:
         self.lower_percentile = 10
         self.upper_percentile = 90
 
-        # reservoir sampling
-        #   (to lower the computational cost when computing the percentiles
-        #   in build_percentile_height_maps())
-        self.use_reservoir_sampling = False
-        self.reservoir_size = 300
+        # sampling method to compute the percentiles in build_percentile_height_maps():
+        #   "simple"    ... use all values
+        #   "reservoir" ... online random reservoir sampling
+        #   "first_n"   ... first N values observed in the cell
+        #   "last_n"    ... last N values observed in the cell
+        self.height_sampling_method = "simple"
+        self.height_sample_size = 100
 
     def update(self, timestamp, points):
         """
@@ -161,8 +163,24 @@ class PointCloudInterpreter:
         For each grid cell, Z values are collected and robust lower
         and upper height estimates are computed using percentiles.
 
-        If reservoir sampling is enabled, each grid cell stores only
-        a limited random sample of observed Z values.
+        The number of Z values used per grid cell can be controlled
+        by self.height_sampling_method.
+
+        Supported sampling methods:
+            "simple":
+                Use all Z values.
+
+            "reservoir":
+                Keep a random sample of at most self.height_sample_size
+                values per cell using online reservoir sampling.
+
+            "first_n":
+                Keep only the first self.height_sample_size values
+                observed in each cell.
+
+            "last_n":
+                Keep only the last self.height_sample_size values
+                observed in each cell.
 
         Args:
             points (numpy.array):
@@ -185,6 +203,12 @@ class PointCloudInterpreter:
         z_values = [[[] for _ in range(ny)] for _ in range(nx)]
         z_seen_count = np.zeros((nx, ny), dtype=int)
 
+        method = self.height_sampling_method
+        sample_size = self.height_sample_size
+
+        if method not in ("simple", "reservoir", "first_n", "last_n"):
+            raise ValueError(f"Unknown height_sampling_method: {method}")
+
         for point in points:
             x, y, z = point
 
@@ -198,18 +222,28 @@ class PointCloudInterpreter:
 
             if 0 <= ix < nx and 0 <= iy < ny:
                 z_seen_count[ix, iy] += 1
+                cell = z_values[ix][iy]
 
-                if not self.use_reservoir_sampling:
-                    z_values[ix][iy].append(z)
-                else:
-                    cell = z_values[ix][iy]
+                if method == "simple":
+                    cell.append(z)
+
+                elif method == "first_n":
+                    if len(cell) < sample_size:
+                        cell.append(z)
+
+                elif method == "last_n":
+                    if len(cell) >= sample_size:
+                        cell.pop(0)
+                    cell.append(z)
+
+                elif method == "reservoir":
                     seen = z_seen_count[ix, iy]
 
-                    if len(cell) < self.reservoir_size:
+                    if len(cell) < sample_size:
                         cell.append(z)
                     else:
                         j = np.random.randint(0, seen)
-                        if j < self.reservoir_size:
+                        if j < sample_size:
                             cell[j] = z
 
         min_map = np.full((nx, ny), np.nan)
@@ -226,7 +260,7 @@ class PointCloudInterpreter:
                 low, high = np.percentile(
                     values,
                     [self.lower_percentile, self.upper_percentile],
-                    method="linear",
+                    method = "linear",
                 )
 
                 min_map[ix, iy] = low
