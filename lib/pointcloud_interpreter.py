@@ -149,6 +149,29 @@ class PointCloudInterpreter:
         return output
 
     def build_percentile_height_maps(self, points):
+        """
+        Builds percentile-based height maps from a point cloud.
+
+        The point cloud is projected into a 2D grid in the XY plane.
+        For each grid cell, all Z values are collected and robust lower
+        and upper height estimates are computed using percentiles.
+
+        Args:
+            points (numpy.array):
+                Point cloud of shape N x 3.
+
+        Returns:
+            min_map (numpy.array):
+                2D map containing lower-percentile height estimates.
+
+            max_map (numpy.array):
+                2D map containing upper-percentile height estimates.
+
+            count_map (numpy.array):
+                2D map containing the number of points accumulated
+                in each grid cell.
+        """
+
         nx = int((self.x_max - self.x_min) / self.resolution)
         ny = int((self.y_max - self.y_min) / self.resolution)
 
@@ -194,6 +217,29 @@ class PointCloudInterpreter:
         return min_map, max_map, count_map
 
     def build_slope_map(self, z_map):
+        """
+        Computes terrain slope from a height map.
+
+        The method estimates height gradients in X and Y directions
+        using central differences between neighboring grid cells.
+        The final slope map contains the magnitude of the local height
+        gradient.
+
+        Args:
+            z_map (numpy.array):
+                2D height map. Unknown cells are represented by np.nan.
+
+        Returns:
+            dzdx_map (numpy.array):
+                2D map of height gradient in the X direction.
+
+            dzdy_map (numpy.array):
+                2D map of height gradient in the Y direction.
+
+            slope_map (numpy.array):
+                2D map containing the magnitude of the local terrain slope.
+        """
+
         nx, ny = z_map.shape
 
         dzdx_map = np.full((nx, ny), np.nan)
