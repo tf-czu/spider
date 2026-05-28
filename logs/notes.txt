@@ -1,0 +1,59 @@
+# task1 - jizda po cestě, vše prujezde, kličkovaní,
+# spider-rc-260526_081144.log
+# 
+# task2 - jizda prez hrby, nerovnosti, stále prujezdné, jen tráva
+# spider-rc-260526_084454.log
+# spider-rc-260526_084802.log     pk
+# spider-rc-260526_084921.log
+# spider-rc-260526_085312.log     pk
+# 
+# task3 - najezd k prekazce
+# spider-rc-260526_085517.log     jizda k díře před robotem
+# spider-rc-260526_085636.log     opakovaná jizda k "údolí" (svah na hraně sjízdnosti)    pk
+# spider-rc-260526_085931.log     jízda na strom, následně kolem menšího stromku
+# 
+# task4 - testy na naraz, zkouším, co robota zastaví (aktivuje se nárazník)
+# spider-rc-260526_090431.log     pk
+# spider-rc-260526_090655.log
+# spider-rc-260526_090912.log     průjezd přez menší křoví, robot nezastavem. pk
+# spider-rc-260526_091151.log     průjezd kolem/přez středních a menších křovin
+# 
+# --------------------------------------------------------------------------------
+# 
+# task1 - jizda po cestě, vše prujezde, kličkovaní,
+# 11_spider-rc-260526_081144.log
+# 
+# task2 - jizda prez hrby, nerovnosti, stále prujezdné, jen tráva
+# 21_spider-rc-260526_084454.log
+# 22_spider-rc-260526_084802.log     pk
+# 23_spider-rc-260526_084921.log
+# 24_spider-rc-260526_085312.log     pk
+# 
+# task3 - najezd k prekazce
+# 31_dira_spider-rc-260526_085517.log     jizda k díře před robotem
+# 32_udoli_spider-rc-260526_085636.log     opakovaná jizda k "údolí" (svah na hraně sjízdnosti)    pk
+# 33_strom_spider-rc-260526_085931.log     jízda na strom, následně kolem menšího stromku
+# 
+# task4 - testy na naraz, zkouším, co robota zastaví (aktivuje se nárazník)
+# 41_spider-rc-260526_090431.log     pk
+# 42_spider-rc-260526_090655.log
+# 43_spider-rc-260526_090912.log     průjezd přez menší křoví, robot nezastavem. pk
+# 44_spider-rc-260526_091151.log     průjezd kolem/přez středních a menších křovin
+# 
+# --------------------------------------------------------------------------------
+# 
+
+
+
+mv spider-rc-260526_081144.log       11_spider-rc-260526_081144.log
+mv spider-rc-260526_084454.log       21_spider-rc-260526_084454.log
+mv spider-rc-260526_084802.log       22_spider-rc-260526_084802.log
+mv spider-rc-260526_084921.log       23_spider-rc-260526_084921.log
+mv spider-rc-260526_085312.log       24_spider-rc-260526_085312.log
+mv spider-rc-260526_085517.log       31_dira_spider-rc-260526_085517.log
+mv spider-rc-260526_085636.log       32_udoli_spider-rc-260526_085636.log
+mv spider-rc-260526_085931.log       33_strom_spider-rc-260526_085931.log
+mv spider-rc-260526_090431.log       41_spider-rc-260526_090431.log
+mv spider-rc-260526_090655.log       42_spider-rc-260526_090655.log
+mv spider-rc-260526_090912.log       43_spider-rc-260526_090912.log
+mv spider-rc-260526_091151.log       44_spider-rc-260526_091151.log
