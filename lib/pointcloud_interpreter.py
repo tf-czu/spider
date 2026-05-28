@@ -50,7 +50,8 @@ class PointCloudInterpreter:
         self.list_of_accumulated_point_clouds = []
 
         self.terrain_mapper = TerrainMapper()
-        self.angular_mapper = AngularMapper()
+        #self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_point")
+        self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_cluster")
 
     def update(self, timestamp, points):
         """
