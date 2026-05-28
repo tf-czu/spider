@@ -38,6 +38,7 @@ class Mapper(Node):
         - slope map
         - traversability map
         - height map
+        - angular obstacle map
     """
 
     def __init__(self, config, bus):
@@ -61,7 +62,7 @@ class Mapper(Node):
         self.verbose = False
 
         # interprets accumulated point clouds into terrain maps
-        self.interpreter = PointCloudInterpreter(output_frequency = 1.0)
+        self.interpreter = PointCloudInterpreter(output_frequency=1.0)
 
         # lidar scan -> point cloud converter
         # initialized after lidar metadata are received
@@ -73,6 +74,8 @@ class Mapper(Node):
         self.draw_max_maps = []
         self.draw_dif_maps = []
         self.draw_slope_maps = []
+        self.draw_angular_distances = []
+        self.draw_angular_counts = []
 
     def on_lidar_metadata(self, data):
         """
@@ -115,12 +118,15 @@ class Mapper(Node):
 
             # update terrain interpretation pipeline
             output = self.interpreter.update(self.time, points)
+
             if self.verbose and output is not None:
                 self.draw_timestamps.append(output["timestamp"])
-                self.draw_min_maps.append(output["min_map"])
-                self.draw_max_maps.append(output["max_map"])
+                #self.draw_min_maps.append(output["min_map"])
+                #self.draw_max_maps.append(output["max_map"])
                 self.draw_dif_maps.append(output["dif_map"])
-                self.draw_slope_maps.append(output["slope_map"])
+                #self.draw_slope_maps.append(output["slope_map"])
+                self.draw_angular_distances.append(output["angular_distances"])
+                #self.draw_angular_counts.append(output["angular_counts"])
                 print(len(self.draw_timestamps))
 
     def on_lidar_reflectivity(self, data):
@@ -142,47 +148,85 @@ class Mapper(Node):
             pass
 
     def draw(self):
-        if self.verbose:
-            import matplotlib.pyplot as plt
+        """
+        Draws debug visualization.
 
-            maps = self.draw_dif_maps
-            timestamps = self.draw_timestamps
+        If verbose mode is enabled, this method shows two maps at once:
+            - grid-based terrain map
+            - angular obstacle-distance map
 
-            if not maps:
-                print("No maps to draw.")
-                return
+        Keyboard controls:
+            right arrow ... next frame
+            left arrow  ... previous frame
+        """
+        if not self.verbose:
+            return
 
-            fig, ax = plt.subplots()
-            idx = 0
+        import matplotlib.pyplot as plt
 
-            img = ax.imshow(
-                maps[idx].T,
-                origin="lower",
-                aspect="equal",
-                vmin=0.0,
-                vmax=1.0,
-            )
+        grid_maps = self.draw_dif_maps
+        angular_maps = self.draw_angular_distances
+        timestamps = self.draw_timestamps
 
-            cbar = plt.colorbar(img, ax=ax, label="Height difference [m]")
+        if not grid_maps or not angular_maps:
+            print("No maps to draw.")
+            return
 
-            title = ax.set_title(f"Frame {idx + 1}/{len(maps)}  t={timestamps[idx]}")
+        fig, (ax_grid, ax_angular) = plt.subplots(1, 2, figsize=(12, 6))
+        idx = 0
 
-            def draw_update_image():
-                img.set_data(maps[idx].T)
-                title.set_text(f"Frame {idx + 1}/{len(maps)}  t={timestamps[idx]}")
-                fig.canvas.draw_idle()
+        grid_img = ax_grid.imshow(
+            grid_maps[idx].T,
+            origin="lower",
+            aspect="equal",
+            vmin=0.0,
+            vmax=1.0,
+        )
+        plt.colorbar(grid_img, ax=ax_grid, label="Height difference [m]")
+        ax_grid.set_title("Grid map")
 
-            def draw_on_key(event):
-                nonlocal idx
+        angular_distances = angular_maps[idx]
+        angles = np.linspace(0.0, 2.0 * np.pi, len(angular_distances), endpoint=False)
+        valid = np.isfinite(angular_distances)
+        angular_x = angular_distances[valid] * np.cos(angles[valid])
+        angular_y = angular_distances[valid] * np.sin(angles[valid])
 
-                if event.key == "right":
-                    idx = min(idx + 1, len(maps) - 1)
-                    draw_update_image()
+        angular_scatter = ax_angular.scatter(angular_x, angular_y, s=8)
+        center_scatter = ax_angular.scatter([0.0], [0.0], s=60, marker="+")
 
-                elif event.key == "left":
-                    idx = max(idx - 1, 0)
-                    draw_update_image()
+        max_range = self.interpreter.angular_mapper.max_distance
+        ax_angular.set_xlim(-max_range, max_range)
+        ax_angular.set_ylim(-max_range, max_range)
+        ax_angular.set_aspect("equal")
+        ax_angular.grid(True)
+        ax_angular.set_xlabel("X [m]")
+        ax_angular.set_ylabel("Y [m]")
+        ax_angular.set_title("Angular obstacle map")
 
-            fig.canvas.mpl_connect("key_press_event", draw_on_key)
+        title = fig.suptitle(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
 
-            plt.show()
+        def draw_update_image():
+            grid_img.set_data(grid_maps[idx].T)
+
+            angular_distances = angular_maps[idx]
+            valid = np.isfinite(angular_distances)
+            angular_x = angular_distances[valid] * np.cos(angles[valid])
+            angular_y = angular_distances[valid] * np.sin(angles[valid])
+            angular_scatter.set_offsets(np.column_stack([angular_x, angular_y]))
+
+            title.set_text(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
+            fig.canvas.draw_idle()
+
+        def draw_on_key(event):
+            nonlocal idx
+
+            if event.key == "right":
+                idx = min(idx + 1, len(grid_maps) - 1)
+                draw_update_image()
+
+            elif event.key == "left":
+                idx = max(idx - 1, 0)
+                draw_update_image()
+
+        fig.canvas.mpl_connect("key_press_event", draw_on_key)
+        plt.show()
