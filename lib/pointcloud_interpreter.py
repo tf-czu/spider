@@ -4,6 +4,7 @@ import numpy as np
 
 from lib.terrain_mapper import TerrainMapper
 from lib.angular_mapper import AngularMapper
+from lib.hole_detector import HoleDetector
 
 
 class PointCloudInterpreter:
@@ -52,6 +53,7 @@ class PointCloudInterpreter:
         self.terrain_mapper = TerrainMapper()
         #self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_point")
         self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_cluster")
+        self.hole_detector = HoleDetector()
 
     def update(self, timestamp, points):
         """
@@ -110,12 +112,14 @@ class PointCloudInterpreter:
 
         terrain_output = self.terrain_mapper.compute(points)
         angular_output = self.angular_mapper.compute(points)
+        hole_output = self.hole_detector.compute(terrain_output["min_map"])
 
         output = {
             "timestamp": timestamp,
         }
         output.update(terrain_output)
         output.update(angular_output)
+        output.update(hole_output)
 
         self.fifo_of_outputs.append(output)
 

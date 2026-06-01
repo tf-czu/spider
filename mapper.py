@@ -76,6 +76,7 @@ class Mapper(Node):
         self.draw_slope_maps = []
         self.draw_angular_distances = []
         self.draw_angular_counts = []
+        self.draw_hole_fuzzy_maps = []
 
     def on_lidar_metadata(self, data):
         """
@@ -127,6 +128,7 @@ class Mapper(Node):
                 #self.draw_slope_maps.append(output["slope_map"])
                 self.draw_angular_distances.append(output["angular_distances"])
                 #self.draw_angular_counts.append(output["angular_counts"])
+                self.draw_hole_fuzzy_maps.append(output["hole_fuzzy_mask"])
                 print(len(self.draw_timestamps))
 
     def on_lidar_reflectivity(self, data):
@@ -151,9 +153,10 @@ class Mapper(Node):
         """
         Draws debug visualization.
 
-        If verbose mode is enabled, this method shows two maps at once:
+        If verbose mode is enabled, this method shows three maps at once:
             - grid-based terrain map
             - angular obstacle-distance map
+            - fuzzy hole-candidate map
 
         Keyboard controls:
             right arrow ... next frame
@@ -166,13 +169,14 @@ class Mapper(Node):
 
         grid_maps = self.draw_dif_maps
         angular_maps = self.draw_angular_distances
+        hole_maps = self.draw_hole_fuzzy_maps
         timestamps = self.draw_timestamps
 
-        if not grid_maps or not angular_maps:
+        if not grid_maps or not angular_maps or not hole_maps:
             print("No maps to draw.")
             return
 
-        fig, (ax_grid, ax_angular) = plt.subplots(1, 2, figsize=(12, 6))
+        fig, (ax_grid, ax_angular, ax_holes) = plt.subplots(1, 3, figsize=(18, 6))
         idx = 0
 
         grid_img = ax_grid.imshow(
@@ -203,6 +207,16 @@ class Mapper(Node):
         ax_angular.set_ylabel("Y [m]")
         ax_angular.set_title("Angular obstacle map")
 
+        hole_img = ax_holes.imshow(
+            hole_maps[idx].T,
+            origin="lower",
+            aspect="equal",
+            vmin=0.0,
+            vmax=1.0,
+        )
+        plt.colorbar(hole_img, ax=ax_holes, label="Hole fuzzy mask [-]")
+        ax_holes.set_title("Hole candidates")
+
         title = fig.suptitle(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
 
         def draw_update_image():
@@ -213,6 +227,8 @@ class Mapper(Node):
             angular_x = angular_distances[valid] * np.cos(angles[valid])
             angular_y = angular_distances[valid] * np.sin(angles[valid])
             angular_scatter.set_offsets(np.column_stack([angular_x, angular_y]))
+
+            hole_img.set_data(hole_maps[idx].T)
 
             title.set_text(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
             fig.canvas.draw_idle()
