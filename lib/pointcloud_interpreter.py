@@ -53,7 +53,8 @@ class PointCloudInterpreter:
         self.terrain_mapper = TerrainMapper()
         #self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_point")
         self.angular_mapper = AngularMapper(obstacle_detection_method = "nearest_cluster")
-        self.hole_detector = HoleDetector()
+        #self.hole_detector = HoleDetector(hole_detection_method = "mean")
+        self.hole_detector = HoleDetector(hole_detection_method = "percentile")
 
     def update(self, timestamp, points):
         """
