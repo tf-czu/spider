@@ -3,7 +3,7 @@
 import numpy as np
 
 
-class HoleDetector:
+class HoleDetectorHeight:
     """
     Detects hole candidates in a terrain height map.
 
