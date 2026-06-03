@@ -129,7 +129,7 @@ class Mapper(Node):
                 self.draw_angular_distances.append(output["angular_distances"])
                 #self.draw_angular_counts.append(output["angular_counts"])
                 self.draw_hole_fuzzy_maps.append(output["hole_fuzzy_mask"])
-                print(len(self.draw_timestamps))
+                print(len(self.draw_timestamps), "...", self.interpreter.get_execution_times())
 
     def on_lidar_reflectivity(self, data):
         """

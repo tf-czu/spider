@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 
+import time
+
 import numpy as np
 
 from lib.terrain_mapper import TerrainMapper
@@ -56,6 +58,13 @@ class PointCloudInterpreter:
         #self.hole_detector = HoleDetectorHeight(hole_detection_method = "mean")
         self.hole_detector = HoleDetectorHeight(hole_detection_method = "percentile")
 
+        # measuring time performance
+        self.measure_execution_time = True
+        self.execution_times = []
+        self.terrain_mapper_execution_times = []
+        self.angular_mapper_execution_times = []
+        self.hole_detector_execution_times = []
+
     def update(self, timestamp, points):
         """
         Adds one point cloud to the internal accumulation buffer.
@@ -84,11 +93,32 @@ class PointCloudInterpreter:
             return None
 
         if (timestamp - self.last_output_time).total_seconds() >= self.output_period:
+            t0 = time.perf_counter()
             output = self.process_accumulated_point_clouds(timestamp)
+            if self.measure_execution_time:
+                self.execution_times.append(time.perf_counter() - t0)
+                #if len(self.execution_times) % 5 == 0:
+                #     print("execution time [ms]: avg = {:.1f}, min = {:.1f}, max = {:.1f}".format(
+                #        1000*np.mean(self.execution_times),
+                #        1000*np.min(self.execution_times),
+                #        1000*np.max(self.execution_times)))
             self.last_output_time = timestamp
             return output
 
         return None
+
+    def get_execution_times(self):
+        result = ""
+        #if self.measure_execution_time:
+        #    result += "avg: {:.1f}".format(1000*np.mean(self.execution_times))
+        #    result += " min: {:.1f}".format(1000*np.min(self.execution_times))
+        #    result += " max: {:.1f}".format(1000*np.max(self.execution_times))
+        if self.measure_execution_time:
+            result += "tot: {:.1f}".format(1000*np.mean(self.execution_times))
+            result += " ter: {:.1f}".format(1000*np.min(self.terrain_mapper_execution_times))
+            result += " ang: {:.1f}".format(1000*np.max(self.angular_mapper_execution_times))
+            result += " hol: {:.1f}".format(1000*np.max(self.hole_detector_execution_times))
+        return result
 
     def process_accumulated_point_clouds(self, timestamp):
         """
@@ -111,9 +141,20 @@ class PointCloudInterpreter:
 
         points = np.vstack(self.list_of_accumulated_point_clouds)
 
+        t0 = time.perf_counter()
         terrain_output = self.terrain_mapper.compute(points)
+        if self.measure_execution_time:
+            self.terrain_mapper_execution_times.append(time.perf_counter() - t0)
+
+        t0 = time.perf_counter()
         angular_output = self.angular_mapper.compute(points)
+        if self.measure_execution_time:
+            self.angular_mapper_execution_times.append(time.perf_counter() - t0)
+
+        t0 = time.perf_counter()
         hole_output = self.hole_detector.compute(terrain_output["min_map"])
+        if self.measure_execution_time:
+            self.hole_detector_execution_times.append(time.perf_counter() - t0)
 
         output = {
             "timestamp": timestamp,
