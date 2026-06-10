@@ -56,8 +56,9 @@ class Invasive(Node):
                 q_heading = -quaternion.heading(quat)  # IMU is probably inverted ?
                 self.heading = (q_heading - self.start_q_heading) - self.start_heading  # diff q_heading - initial gps_heading
                 if self.verbose:
-                    print(f"{self.time} Orientation - quaternion: {quat}, q_heading: {q_heading}, "
-                          f"start heading (gps based): {self.start_heading}")
+                    pass
+                    # print(f"{self.time} Orientation - quaternion: {quat}, q_heading: {q_heading}, "
+                    #      f"start heading (gps based): {self.start_heading}")
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -104,13 +105,14 @@ class Invasive(Node):
                 heading_diff = normalizeAnglePIPI(self.heading - self.get_geo_angle(self.last_geo_pose, waypoint))  # radians
                 if self.verbose:
                     print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
-                          f"heading_diff: {heading_diff}")
+                          f"heading: {self.heading}, heading_diff: {heading_diff}")
                 self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
         try:
             self.wait(1)
+            assert self.last_pose is not None  # TODO add some initialization
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             self.start_geo_pose = self.last_geo_pose
             self.go_straight(5)
@@ -119,6 +121,7 @@ class Invasive(Node):
                 self.navigate_to_waypoints(waypoint)
         except BusShutdownException:
             pass
+        self.send_speed_cmd(0, 0)
 
 
     def draw(self):
