@@ -4,17 +4,15 @@ import numpy as np
 
 from osgar.node import Node
 
-from lib.pointcloud_interpreter import PointCloudInterpreter
-from lib.lidar_to_pointcloud import LidarToPointCloud
+from lib.lidar_interpreter import LidarInterpreter
 
 
 class Mapper(Node):
     """
-    OSGAR node responsible for lidar-based terrain mapping.
+    OSGAR node responsible for scan-based lidar interpretation.
 
-    The Mapper receives raw lidar data from the OSGAR bus,
-    converts the scans into point clouds and forwards them
-    to PointCloudInterpreter for higher-level terrain analysis.
+    The Mapper receives raw lidar range scans from the OSGAR bus and forwards
+    them directly to LidarInterpreter. No point cloud is created in this branch.
 
     Input streams:
         - lidar_metadata
@@ -25,20 +23,9 @@ class Mapper(Node):
 
         lidar scan
             |
-        LidarToPointCloud
+        LidarInterpreter
             |
-        point cloud (N x 3)
-            |
-        PointCloudInterpreter
-            |
-        terrain maps
-
-    Expected output maps:
-        - obstacle map
-        - slope map
-        - traversability map
-        - height map
-        - angular obstacle map
+        angular obstacle and hole maps
     """
 
     def __init__(self, config, bus):
@@ -55,108 +42,66 @@ class Mapper(Node):
 
         super().__init__(config, bus)
 
-        # register a stream to be published
-        # bus.register('pose3d')
-
-        # super-class Node sets this to `True` if --verbose parameter is applied
         self.verbose = False
 
-        # interprets accumulated point clouds into terrain maps
-        self.interpreter = PointCloudInterpreter(output_frequency=1.0)
+        self.interpreter = LidarInterpreter(output_frequency=1.0)
 
-        # lidar scan -> point cloud converter
-        # initialized after lidar metadata are received
-        self.l2pc = None
-
-        # data for draw()
         self.draw_timestamps = []
-        self.draw_min_maps = []
-        self.draw_max_maps = []
-        self.draw_dif_maps = []
-        self.draw_slope_maps = []
-        self.draw_angular_distances = []
-        self.draw_angular_counts = []
-        self.draw_hole_fuzzy_maps = []
+        self.draw_obstacle_distances = []
+        self.draw_hole_distances = []
+        self.draw_obstacle_pixel_masks = []
+        self.draw_hole_pixel_masks = []
 
     def on_lidar_metadata(self, data):
         """
-        Processes lidar geometry metadata.
+        Processes lidar metadata.
 
-        This callback is expected to be processed before
-        lidar scans are received.
-
-        The metadata are used to initialize:
-            - sensor geometry
-            - XYZ lookup table
-            - lidar scan to point cloud conversion
+        The scan-based interpreter does not need lidar geometry metadata yet,
+        but the callback is kept so the OSGAR stream can be connected.
 
         Args:
             data (str):
                 JSON string containing lidar metadata.
         """
-
-        # initialize lidar converter only once
-        if self.l2pc is None:
-            self.l2pc = LidarToPointCloud(data)
+        pass
 
     def on_lidar_scan3d(self, data):
         """
-        Processes one lidar distance scan.
-
-        The incoming range image is converted into
-        a 3D point cloud and passed to PointCloudInterpreter.
+        Processes one lidar range scan.
 
         Args:
             data (numpy.array):
                 Lidar range scan of size H x W.
         """
 
-        # ignore scans until lidar metadata are initialized
-        if self.l2pc is not None:
+        output = self.interpreter.update(self.time, data)
 
-            # convert lidar scan to Nx3 point cloud
-            points = self.l2pc.convert(data)
-
-            # update terrain interpretation pipeline
-            output = self.interpreter.update(self.time, points)
-
-            if self.verbose and output is not None:
-                self.draw_timestamps.append(output["timestamp"])
-                #self.draw_min_maps.append(output["min_map"])
-                #self.draw_max_maps.append(output["max_map"])
-                self.draw_dif_maps.append(output["dif_map"])
-                #self.draw_slope_maps.append(output["slope_map"])
-                self.draw_angular_distances.append(output["angular_distances"])
-                #self.draw_angular_counts.append(output["angular_counts"])
-                self.draw_hole_fuzzy_maps.append(output["hole_fuzzy_mask"])
-                print(len(self.draw_timestamps), "...", self.interpreter.get_execution_times())
+        if self.verbose and output is not None:
+            self.draw_timestamps.append(output["timestamp"])
+            self.draw_obstacle_distances.append(output["obstacle_distances"])
+            self.draw_hole_distances.append(output["hole_distances"])
+            self.draw_obstacle_pixel_masks.append(output["obstacle_pixel_mask"])
+            self.draw_hole_pixel_masks.append(output["hole_pixel_mask"])
+            print(len(self.draw_timestamps), "...", self.interpreter.get_execution_times())
 
     def on_lidar_reflectivity(self, data):
         """
         Processes one lidar reflectivity scan.
 
-        Reflectivity information may later be used for:
-            - vegetation detection
-            - terrain classification
-            - surface material estimation
-
         Args:
             data (numpy.array):
                 Lidar reflectivity scan of size H x W.
         """
-
-        if self.l2pc is not None:
-            # print("REFLECTIVITY:", data.shape)
-            pass
+        pass
 
     def draw(self):
         """
         Draws debug visualization.
 
-        If verbose mode is enabled, this method shows three maps at once:
-            - grid-based terrain map
+        If verbose mode is enabled, this method shows three maps:
             - angular obstacle-distance map
-            - fuzzy hole-candidate map
+            - angular hole-distance map
+            - pixel masks of the latest interpreted scan
 
         Keyboard controls:
             right arrow ... next frame
@@ -167,77 +112,119 @@ class Mapper(Node):
 
         import matplotlib.pyplot as plt
 
-        grid_maps = self.draw_dif_maps
-        angular_maps = self.draw_angular_distances
-        hole_maps = self.draw_hole_fuzzy_maps
+        obstacle_maps = self.draw_obstacle_distances
+        hole_maps = self.draw_hole_distances
+        obstacle_pixel_masks = self.draw_obstacle_pixel_masks
+        hole_pixel_masks = self.draw_hole_pixel_masks
         timestamps = self.draw_timestamps
 
-        if not grid_maps or not angular_maps or not hole_maps:
+        if not obstacle_maps or not hole_maps:
             print("No maps to draw.")
             return
 
-        fig, (ax_grid, ax_angular, ax_holes) = plt.subplots(1, 3, figsize=(18, 6))
+        #fig, (ax_obstacles, ax_holes, ax_pixels) = plt.subplots(1, 3, figsize=(18, 6))
+
+        fig, (ax_obstacles, ax_holes, ax_pixels) = plt.subplots(
+            1,
+            3,
+            figsize=(30, 6),
+            gridspec_kw={"width_ratios": [1, 1, 5]},
+        )
+
         idx = 0
 
-        grid_img = ax_grid.imshow(
-            grid_maps[idx].T,
-            origin="lower",
-            aspect="equal",
-            vmin=0.0,
-            vmax=1.0,
+        angles = np.linspace(
+            0.0,
+            2.0 * np.pi,
+            self.interpreter.number_of_bins,
+            endpoint=False,
         )
-        plt.colorbar(grid_img, ax=ax_grid, label="Height difference [m]")
-        ax_grid.set_title("Grid map")
 
-        angular_distances = angular_maps[idx]
-        angles = np.linspace(0.0, 2.0 * np.pi, len(angular_distances), endpoint=False)
-        valid = np.isfinite(angular_distances)
-        angular_x = angular_distances[valid] * np.cos(angles[valid])
-        angular_y = angular_distances[valid] * np.sin(angles[valid])
+        obstacle_distances = obstacle_maps[idx]
+        obstacle_valid = np.isfinite(obstacle_distances)
+        obstacle_x = obstacle_distances[obstacle_valid] * np.cos(angles[obstacle_valid])
+        obstacle_y = obstacle_distances[obstacle_valid] * np.sin(angles[obstacle_valid])
 
-        angular_scatter = ax_angular.scatter(angular_x, angular_y, s=8)
-        center_scatter = ax_angular.scatter([0.0], [0.0], s=60, marker="+")
+        obstacle_scatter = ax_obstacles.scatter(obstacle_x, obstacle_y, s=8)
+        ax_obstacles.scatter([0.0], [0.0], s=60, marker="+")
+        ax_obstacles.set_title("Scan obstacle map")
 
-        max_range = self.interpreter.angular_mapper.max_distance
-        ax_angular.set_xlim(-max_range, max_range)
-        ax_angular.set_ylim(-max_range, max_range)
-        ax_angular.set_aspect("equal")
-        ax_angular.grid(True)
-        ax_angular.set_xlabel("X [m]")
-        ax_angular.set_ylabel("Y [m]")
-        ax_angular.set_title("Angular obstacle map")
+        hole_distances = hole_maps[idx]
+        hole_valid = np.isfinite(hole_distances)
+        hole_x = hole_distances[hole_valid] * np.cos(angles[hole_valid])
+        hole_y = hole_distances[hole_valid] * np.sin(angles[hole_valid])
 
-        hole_img = ax_holes.imshow(
-            hole_maps[idx].T,
+        hole_scatter = ax_holes.scatter(hole_x, hole_y, s=8)
+        ax_holes.scatter([0.0], [0.0], s=60, marker="+")
+        ax_holes.set_title("Scan hole map")
+
+        for ax in (ax_obstacles, ax_holes):
+            max_range = self.interpreter.max_range
+            ax.set_xlim(-max_range, max_range)
+            ax.set_ylim(-max_range, max_range)
+            ax.set_aspect("equal")
+            ax.grid(True)
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Y [m]")
+
+        obstacle_mask = obstacle_pixel_masks[idx]
+        hole_mask = hole_pixel_masks[idx]
+        pixel_show = np.zeros(obstacle_mask.shape, dtype=float)
+        pixel_show[obstacle_mask] = 1.0
+        if hole_mask.shape[0] == pixel_show.shape[0] - 1:
+            pixel_show[:-1, :][hole_mask] = 2.0
+
+        #pixel_img = ax_pixels.imshow(
+        #    pixel_show,
+        #    origin="lower",
+        #    aspect="auto",
+        #    vmin=0.0,
+        #    vmax=2.0,
+        #)
+        pixel_img = ax_pixels.imshow(
+            pixel_show,
             origin="lower",
-            aspect="equal",
+            aspect="auto",
+            interpolation="nearest",
             vmin=0.0,
-            vmax=1.0,
+            vmax=2.0,
         )
-        plt.colorbar(hole_img, ax=ax_holes, label="Hole fuzzy mask [-]")
-        ax_holes.set_title("Hole candidates")
+        plt.colorbar(pixel_img, ax=ax_pixels, label="0 none, 1 obstacle, 2 hole")
+        ax_pixels.set_title("Scan pixel detections")
+        ax_pixels.set_xlabel("Azimuth column")
+        ax_pixels.set_ylabel("Lidar channel")
 
-        title = fig.suptitle(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
+        title = fig.suptitle(f"Frame {idx + 1}/{len(obstacle_maps)}  t={timestamps[idx]}")
 
         def draw_update_image():
-            grid_img.set_data(grid_maps[idx].T)
+            obstacle_distances = obstacle_maps[idx]
+            obstacle_valid = np.isfinite(obstacle_distances)
+            obstacle_x = obstacle_distances[obstacle_valid] * np.cos(angles[obstacle_valid])
+            obstacle_y = obstacle_distances[obstacle_valid] * np.sin(angles[obstacle_valid])
+            obstacle_scatter.set_offsets(np.column_stack([obstacle_x, obstacle_y]))
 
-            angular_distances = angular_maps[idx]
-            valid = np.isfinite(angular_distances)
-            angular_x = angular_distances[valid] * np.cos(angles[valid])
-            angular_y = angular_distances[valid] * np.sin(angles[valid])
-            angular_scatter.set_offsets(np.column_stack([angular_x, angular_y]))
+            hole_distances = hole_maps[idx]
+            hole_valid = np.isfinite(hole_distances)
+            hole_x = hole_distances[hole_valid] * np.cos(angles[hole_valid])
+            hole_y = hole_distances[hole_valid] * np.sin(angles[hole_valid])
+            hole_scatter.set_offsets(np.column_stack([hole_x, hole_y]))
 
-            hole_img.set_data(hole_maps[idx].T)
+            obstacle_mask = obstacle_pixel_masks[idx]
+            hole_mask = hole_pixel_masks[idx]
+            pixel_show = np.zeros(obstacle_mask.shape, dtype=float)
+            pixel_show[obstacle_mask] = 1.0
+            if hole_mask.shape[0] == pixel_show.shape[0] - 1:
+                pixel_show[:-1, :][hole_mask] = 2.0
+            pixel_img.set_data(pixel_show)
 
-            title.set_text(f"Frame {idx + 1}/{len(grid_maps)}  t={timestamps[idx]}")
+            title.set_text(f"Frame {idx + 1}/{len(obstacle_maps)}  t={timestamps[idx]}")
             fig.canvas.draw_idle()
 
         def draw_on_key(event):
             nonlocal idx
 
             if event.key == "right":
-                idx = min(idx + 1, len(grid_maps) - 1)
+                idx = min(idx + 1, len(obstacle_maps) - 1)
                 draw_update_image()
 
             elif event.key == "left":
