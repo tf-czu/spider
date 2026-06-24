@@ -16,10 +16,10 @@ class LidarInterpreter:
     columns in the lidar scan. Therefore, one scan column corresponds to one
     angular output element.
 
-    Obstacle candidates are detected as vertical clusters of similar range
+    Obstacle candidates are detected as vertical clusters of similar distance
     values in one lidar column.
 
-    Hole candidates are detected as large range jumps between vertically
+    Hole candidates are detected as large distance jumps between vertically
     adjacent pixels in one lidar column.
     """
 
@@ -41,13 +41,13 @@ class LidarInterpreter:
                 Conversion factor from raw lidar range values to meters.
 
             min_range (float):
-                Minimal valid range [m].
+                Minimal valid distance [m].
 
             max_range (float):
-                Maximal valid range [m].
+                Maximal valid distance [m].
 
             obstacle_range_tolerance (float):
-                Maximal range difference [m] between vertically adjacent
+                Maximal distance difference [m] between vertically adjacent
                 pixels belonging to the same obstacle cluster.
 
             min_obstacle_pixels (int):
@@ -55,20 +55,19 @@ class LidarInterpreter:
                 to detect an obstacle.
 
             hole_min_near_range (float):
-                Minimal range [m] of the nearer pixel involved in a hole jump.
-                Too near candidates for holes are more likely to be measurement
-                errors.
+                Minimal distance [m] of the nearer pixel involved in a hole
+                jump. Too near candidates for holes are more likely to be
+                measurement errors.
 
             hole_min_range_jump (float):
-                Minimal absolute range difference [m] between vertically
+                Minimal absolute distance difference [m] between vertically
                 adjacent pixels required to detect a hole candidate.
                 Roughly corresponds to the "size of the hole".
 
             hole_min_range_ratio (float):
-                Minimal ratio between far and near range required to detect
-                a hole candidate.
-                Makes the detector less sensitive to small relative range
-                changes.
+                Minimal ratio between far and near distance required to detect
+                a hole candidate. Makes the detector less sensitive to small
+                relative distance changes.
 
             measure_execution_time (bool):
                 If True, execution times of scan computations are measured.
@@ -120,7 +119,6 @@ class LidarInterpreter:
 
         return output
 
-
     def compute_scan(self, scan):
         """
         Computes obstacle and hole candidates from one lidar range scan.
@@ -134,127 +132,66 @@ class LidarInterpreter:
                 Dictionary containing angular obstacle and hole maps computed
                 from the given scan.
         """
-        ranges = np.asarray(scan, dtype=float) * self.range_unit
+        distance_image = np.asarray(scan, dtype=float) * self.range_unit
 
-        if ranges.ndim != 2:
-            raise ValueError(f"Expected 2D lidar scan H x W, got shape {ranges.shape}")
+        if distance_image.ndim != 2:
+            raise ValueError(
+                f"Expected 2D lidar scan H x W, got shape {distance_image.shape}"
+            )
 
-        self.check_scan_shape(ranges)
+        self.check_scan_shape(distance_image)
 
-        obstacle_output = self.compute_obstacle_map(ranges)
-        hole_output = self.compute_hole_map(ranges)
+        obstacle_output = self.compute_obstacle_map(distance_image)
+        hole_output = self.compute_hole_map(distance_image)
 
         output = {}
         output.update(obstacle_output)
         output.update(hole_output)
         return output
 
-    def check_scan_shape(self, ranges):
+    def check_scan_shape(self, distance_image):
         """
         Initializes and validates lidar scan geometry.
         """
         if self.scan_shape is None:
-            self.num_rows, self.num_angles = self.scan_shape = ranges.shape
+            self.num_rows, self.num_angles = self.scan_shape = distance_image.shape
             return
-        if ranges.shape != self.scan_shape:
+
+        if distance_image.shape != self.scan_shape:
             raise ValueError(
-                f"Unexpected lidar scan shape {ranges.shape}, expected {self.scan_shape}"
+                f"Unexpected lidar scan shape {distance_image.shape}, "
+                f"expected {self.scan_shape}"
             )
 
-    def compute_obstacle_map(self, ranges):
+    def compute_obstacle_map(self, distance_image):
         """
-        Computes angular obstacle map from one range image.
+        Computes angular obstacle map from one distance image.
 
         Args:
-            ranges (numpy.array):
-                Lidar range image in meters.
+            distance_image (numpy.array):
+                Lidar distance image in meters.
 
         Returns:
             dict:
                 Dictionary containing obstacle distance, count, strength,
                 and pixel mask maps.
         """
+        obstacle_clusters = self.find_obstacle_clusters(distance_image)
+
         obstacle_distances = np.full(self.num_angles, np.nan)
         obstacle_counts = np.zeros(self.num_angles, dtype=int)
         obstacle_strength = np.zeros(self.num_angles, dtype=float)
         obstacle_pixel_mask = np.zeros((self.num_rows, self.num_angles), dtype=bool)
 
-        for col in range(self.num_angles):
-            cluster_start = None
-            cluster_last_range = None
-            cluster_count = 0
-            cluster_min_range = None
+        for cluster in obstacle_clusters:
+            self.store_obstacle_cluster(
+                cluster,
+                obstacle_distances,
+                obstacle_counts,
+                obstacle_strength,
+                obstacle_pixel_mask,
+            )
 
-            for row in range(self.num_rows):
-                value = ranges[row, col]
-
-                if (value < self.min_range) or (value > self.max_range):
-                    # pokud pixel neni platny (vzdalenost mimo povoleny rozsah)
-                    # uzavru cluster
-                    if cluster_count >= self.min_obstacle_pixels:
-                        self.store_obstacle_cluster(
-                            col,
-                            cluster_start,
-                            row,
-                            cluster_min_range,
-                            cluster_count,
-                            obstacle_distances,
-                            obstacle_counts,
-                            obstacle_strength,
-                            obstacle_pixel_mask,
-                        )
-                    # pripravim novy cluster
-                    cluster_start = None
-                    cluster_last_range = None
-                    cluster_count = 0
-                    cluster_min_range = None
-                elif cluster_start is None:
-                    # pokud jeste zadny cluster nebyl zalozen,
-                    # pripravim novy cluster s hodnotou, kterou ted vidim
-                    cluster_start = row
-                    cluster_last_range = value
-                    cluster_count = 1
-                    cluster_min_range = value
-                elif abs(value - cluster_last_range) <= self.obstacle_range_tolerance:
-                    # pokud je hodnota pixelu podobna hodnote predchoziho pixelu,
-                    # pridam dalsi pixel do clusteru
-                    cluster_last_range = value
-                    cluster_count += 1
-                    cluster_min_range = min(cluster_min_range, value)
-                else:
-                    # pokud je hodnota pixelu prilis vzdalena hodnote predchoziho pixelu,
-                    # uzaviram cluster
-                    if cluster_count >= self.min_obstacle_pixels:
-                        self.store_obstacle_cluster(
-                            col,
-                            cluster_start,
-                            row,
-                            cluster_min_range,
-                            cluster_count,
-                            obstacle_distances,
-                            obstacle_counts,
-                            obstacle_strength,
-                            obstacle_pixel_mask,
-                        )
-                    cluster_start = row
-                    cluster_last_range = value
-                    cluster_count = 1
-                    cluster_min_range = value
-                # end for
-            # vyresim posledni mozny cluster, ktery mohl zustat neuzavreny,
-            # kdyz for cyklus skoncil
-            if cluster_count >= self.min_obstacle_pixels:
-                self.store_obstacle_cluster(
-                    col,
-                    cluster_start,
-                    self.num_rows,
-                    cluster_min_range,
-                    cluster_count,
-                    obstacle_distances,
-                    obstacle_counts,
-                    obstacle_strength,
-                    obstacle_pixel_mask,
-                )
         return {
             "obstacle_distances": obstacle_distances,
             "obstacle_counts": obstacle_counts,
@@ -262,13 +199,135 @@ class LidarInterpreter:
             "obstacle_pixel_mask": obstacle_pixel_mask,
         }
 
-    def compute_hole_map(self, ranges):
+    def find_obstacle_clusters(self, distance_image):
         """
-        Computes angular hole-candidate map from one range image.
+        Finds obstacle clusters in all angular directions.
+
+        Returns:
+            list of dict:
+                Each dictionary describes one vertical cluster of similar
+                distance values in one scan column.
+        """
+        obstacle_clusters = []
+
+        for col in range(self.num_angles):
+            obstacle_clusters.extend(
+                self.find_obstacle_clusters_in_column(distance_image, col)
+            )
+
+        return obstacle_clusters
+
+    def find_obstacle_clusters_in_column(self, distance_image, col):
+        """
+        Finds obstacle clusters in one lidar scan column.
+        """
+        clusters = []
+
+        cluster_start = None
+        cluster_last_distance = None
+        cluster_count = 0
+        cluster_min_distance = None
+
+        for row in range(self.num_rows):
+            distance = distance_image[row, col]
+
+            if not self.is_valid_distance(distance):
+                if cluster_count >= self.min_obstacle_pixels:
+                    clusters.append(
+                        self.create_obstacle_cluster(
+                            col,
+                            cluster_start,
+                            row,
+                            cluster_min_distance,
+                            cluster_count,
+                        )
+                    )
+
+                cluster_start = None
+                cluster_last_distance = None
+                cluster_count = 0
+                cluster_min_distance = None
+                continue
+
+            if cluster_start is None:
+                cluster_start = row
+                cluster_last_distance = distance
+                cluster_count = 1
+                cluster_min_distance = distance
+                continue
+
+            if self.is_similar_distance(distance, cluster_last_distance):
+                cluster_last_distance = distance
+                cluster_count += 1
+                cluster_min_distance = min(cluster_min_distance, distance)
+            else:
+                if cluster_count >= self.min_obstacle_pixels:
+                    clusters.append(
+                        self.create_obstacle_cluster(
+                            col,
+                            cluster_start,
+                            row,
+                            cluster_min_distance,
+                            cluster_count,
+                        )
+                    )
+
+                cluster_start = row
+                cluster_last_distance = distance
+                cluster_count = 1
+                cluster_min_distance = distance
+
+        if cluster_count >= self.min_obstacle_pixels:
+            clusters.append(
+                self.create_obstacle_cluster(
+                    col,
+                    cluster_start,
+                    self.num_rows,
+                    cluster_min_distance,
+                    cluster_count,
+                )
+            )
+
+        return clusters
+
+    def is_valid_distance(self, distance):
+        """
+        Checks whether one distance measurement is valid.
+        """
+        return self.min_range <= distance <= self.max_range
+
+    def is_similar_distance(self, distance, previous_distance):
+        """
+        Checks whether two vertically adjacent distances belong to one cluster.
+        """
+        return abs(distance - previous_distance) <= self.obstacle_range_tolerance
+
+    def create_obstacle_cluster(
+        self,
+        col,
+        row_start,
+        row_end,
+        distance,
+        count,
+    ):
+        """
+        Creates one obstacle cluster description.
+        """
+        return {
+            "col": col,
+            "row_start": row_start,
+            "row_end": row_end,
+            "distance": distance,
+            "count": count,
+        }
+
+    def compute_hole_map(self, distance_image):
+        """
+        Computes angular hole-candidate map from one distance image.
 
         Args:
-            ranges (numpy.array):
-                Lidar range image in meters.
+            distance_image (numpy.array):
+                Lidar distance image in meters.
 
         Returns:
             dict:
@@ -281,18 +340,18 @@ class LidarInterpreter:
         hole_pixel_mask = np.zeros((self.num_rows - 1, self.num_angles), dtype=bool)
 
         for row in range(self.num_rows - 1):
-            r1 = ranges[row, :]
-            r2 = ranges[row + 1, :]
+            d1 = distance_image[row, :]
+            d2 = distance_image[row + 1, :]
 
             valid = (
-                (r1 >= self.min_range) &
-                (r1 <= self.max_range) &
-                (r2 >= self.min_range) &
-                (r2 <= self.max_range)
+                (d1 >= self.min_range) &
+                (d1 <= self.max_range) &
+                (d2 >= self.min_range) &
+                (d2 <= self.max_range)
             )
 
-            near = np.minimum(r1, r2)
-            far = np.maximum(r1, r2)
+            near = np.minimum(d1, d2)
+            far = np.maximum(d1, d2)
             jump = far - near
             ratio = far / np.maximum(near, 1e-9)
 
@@ -333,11 +392,7 @@ class LidarInterpreter:
 
     def store_obstacle_cluster(
         self,
-        col,
-        row_start,
-        row_end,
-        distance,
-        count,
+        cluster,
         obstacle_distances,
         obstacle_counts,
         obstacle_strength,
@@ -346,11 +401,13 @@ class LidarInterpreter:
         """
         Stores one detected obstacle cluster into angular output maps.
         """
+        col = cluster["col"]
+        count = cluster["count"]
         strength = min(1.0, count / self.min_obstacle_pixels)
 
         self.store_nearest_detection(
             col,
-            distance,
+            cluster["distance"],
             count,
             strength,
             obstacle_distances,
@@ -358,7 +415,7 @@ class LidarInterpreter:
             obstacle_strength,
         )
 
-        obstacle_pixel_mask[row_start:row_end, col] = True
+        obstacle_pixel_mask[cluster["row_start"]:cluster["row_end"], col] = True
 
     def store_nearest_detection(
         self,
@@ -366,21 +423,21 @@ class LidarInterpreter:
         distance,
         count,
         strength,
-        obstacle_distances,
-        obstacle_counts,
-        obstacle_strength,
+        distances,
+        counts,
+        strength_values,
     ):
         """
         Stores a detection if it is closer than the current detection
         in the same angular direction.
         """
-        if np.isnan(obstacle_distances[col]) or distance < obstacle_distances[col]:
-            obstacle_distances[col] = distance
-            obstacle_counts[col] = count
-            obstacle_strength[col] = strength
-        elif distance == obstacle_distances[col]:
-            obstacle_counts[col] += count
-            obstacle_strength[col] = max(obstacle_strength[col], strength)
+        if np.isnan(distances[col]) or distance < distances[col]:
+            distances[col] = distance
+            counts[col] = count
+            strength_values[col] = strength
+        elif distance == distances[col]:
+            counts[col] += count
+            strength_values[col] = max(strength_values[col], strength)
 
     def get_num_angles(self):
         """
