@@ -9,8 +9,12 @@ class LidarInterpreter:
     Interprets raw lidar range scans directly, without converting them
     to point clouds.
 
-    The interpreter periodically processes accumulated lidar scans and
-    produces angular obstacle and hole maps.
+    Each incoming scan is processed independently and immediately produces
+    angular obstacle and hole maps.
+
+    The number of angular directions is derived directly from the number of
+    columns in the lidar scan. Therefore, one scan column corresponds to one
+    angular output element.
 
     Obstacle candidates are detected as vertical clusters of similar range
     values in one lidar column.
@@ -21,9 +25,7 @@ class LidarInterpreter:
 
     def __init__(
         self,
-        output_frequency=1.0,
         range_unit=0.001,
-        number_of_bins=360,
         min_range=0.3,
         max_range=15.0,
         obstacle_range_tolerance=0.25,
@@ -35,14 +37,8 @@ class LidarInterpreter:
     ):
         """
         Args:
-            output_frequency (float):
-                Frequency [Hz] at which output maps are generated.
-
             range_unit (float):
                 Conversion factor from raw lidar range values to meters.
-
-            number_of_bins (int):
-                Number of angular bins in output maps.
 
             min_range (float):
                 Minimal valid range [m].
@@ -71,18 +67,13 @@ class LidarInterpreter:
             hole_min_range_ratio (float):
                 Minimal ratio between far and near range required to detect
                 a hole candidate.
-                To be more relaxed when detecting *distant* candidates for
-                holes.
+                Makes the detector less sensitive to small relative range
+                changes.
 
             measure_execution_time (bool):
-                If True, execution times of output computations are measured.
+                If True, execution times of scan computations are measured.
         """
-        self.output_frequency = output_frequency
-        self.output_period = 1.0 / output_frequency
-        self.last_output_time = None
-
         self.range_unit = range_unit
-        self.number_of_bins = number_of_bins
         self.min_range = min_range
         self.max_range = max_range
 
@@ -96,14 +87,13 @@ class LidarInterpreter:
         self.measure_execution_time = measure_execution_time
         self.execution_times = []
 
-        self.list_of_accumulated_scans = []
+        self.scan_shape = None
+        self.num_rows = None
+        self.num_angles = None
 
     def update(self, timestamp, scan):
         """
-        Adds one lidar range scan to the accumulation buffer.
-
-        Once enough time has elapsed since the previous output,
-        the accumulated scans are processed.
+        Processes one lidar range scan.
 
         Args:
             timestamp (datetime.timedelta):
@@ -114,95 +104,22 @@ class LidarInterpreter:
 
         Returns:
             dict:
-                Output maps, if a new output was generated.
-
-            None:
-                If not enough time has elapsed yet.
+                Output maps computed from the given scan.
         """
-        self.list_of_accumulated_scans.append(scan)
-
-        if self.last_output_time is None:
-            self.last_output_time = timestamp
+        if scan is None:
             return None
 
-        if (timestamp - self.last_output_time).total_seconds() >= self.output_period:
-            t0 = time.perf_counter()
-            output = self.process_accumulated_scans(timestamp)
-            dt = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        output = self.compute_scan(scan)
+        dt = time.perf_counter() - t0
 
-            if self.measure_execution_time:
-                self.execution_times.append(dt)
+        if self.measure_execution_time:
+            self.execution_times.append(dt)
 
-            self.last_output_time = timestamp
-            return output
-
-        return None
-
-    def process_accumulated_scans(self, timestamp):
-        """
-        Processes accumulated lidar range scans.
-
-        Args:
-            timestamp (datetime.timedelta):
-                Timestamp of the generated output maps.
-
-        Returns:
-            dict:
-                Dictionary containing angular obstacle and hole maps.
-        """
-        if not self.list_of_accumulated_scans:
-            return None
-
-        obstacle_distances = np.full(self.number_of_bins, np.nan)
-        obstacle_counts = np.zeros(self.number_of_bins, dtype=int)
-        obstacle_strength = np.zeros(self.number_of_bins, dtype=float)
-
-        hole_distances = np.full(self.number_of_bins, np.nan)
-        hole_counts = np.zeros(self.number_of_bins, dtype=int)
-        hole_strength = np.zeros(self.number_of_bins, dtype=float)
-
-        latest_obstacle_pixel_mask = None
-        latest_hole_pixel_mask = None
-
-        for scan in self.list_of_accumulated_scans:
-            scan_output = self.compute_scan(scan)
-
-            self.merge_nearest_distances(
-                obstacle_distances,
-                obstacle_counts,
-                obstacle_strength,
-                scan_output["obstacle_distances"],
-                scan_output["obstacle_counts"],
-                scan_output["obstacle_strength"],
-            )
-
-            self.merge_nearest_distances(
-                hole_distances,
-                hole_counts,
-                hole_strength,
-                scan_output["hole_distances"],
-                scan_output["hole_counts"],
-                scan_output["hole_strength"],
-            )
-
-            latest_obstacle_pixel_mask = scan_output["obstacle_pixel_mask"]
-            latest_hole_pixel_mask = scan_output["hole_pixel_mask"]
-
-        output = {
-            "timestamp": timestamp,
-            "obstacle_distances": obstacle_distances,
-            "obstacle_counts": obstacle_counts,
-            "obstacle_strength": obstacle_strength,
-            "hole_distances": hole_distances,
-            "hole_counts": hole_counts,
-            "hole_strength": hole_strength,
-            "obstacle_pixel_mask": latest_obstacle_pixel_mask,
-            "hole_pixel_mask": latest_hole_pixel_mask,
-        }
-
-        self.list_of_accumulated_scans.clear()
+        output["timestamp"] = timestamp
 
         return output
+
 
     def compute_scan(self, scan):
         """
@@ -222,6 +139,8 @@ class LidarInterpreter:
         if ranges.ndim != 2:
             raise ValueError(f"Expected 2D lidar scan H x W, got shape {ranges.shape}")
 
+        self.check_scan_shape(ranges)
+
         obstacle_output = self.compute_obstacle_map(ranges)
         hole_output = self.compute_hole_map(ranges)
 
@@ -229,6 +148,18 @@ class LidarInterpreter:
         output.update(obstacle_output)
         output.update(hole_output)
         return output
+
+    def check_scan_shape(self, ranges):
+        """
+        Initializes and validates lidar scan geometry.
+        """
+        if self.scan_shape is None:
+            self.num_rows, self.num_angles = self.scan_shape = ranges.shape
+            return
+        if ranges.shape != self.scan_shape:
+            raise ValueError(
+                f"Unexpected lidar scan shape {ranges.shape}, expected {self.scan_shape}"
+            )
 
     def compute_obstacle_map(self, ranges):
         """
@@ -243,30 +174,26 @@ class LidarInterpreter:
                 Dictionary containing obstacle distance, count, strength,
                 and pixel mask maps.
         """
-        h, w = ranges.shape
+        obstacle_distances = np.full(self.num_angles, np.nan)
+        obstacle_counts = np.zeros(self.num_angles, dtype=int)
+        obstacle_strength = np.zeros(self.num_angles, dtype=float)
+        obstacle_pixel_mask = np.zeros((self.num_rows, self.num_angles), dtype=bool)
 
-        obstacle_distances = np.full(self.number_of_bins, np.nan)
-        obstacle_counts = np.zeros(self.number_of_bins, dtype=int)
-        obstacle_strength = np.zeros(self.number_of_bins, dtype=float)
-        obstacle_pixel_mask = np.zeros((h, w), dtype=bool)
-
-        for col in range(w):
-            column = ranges[:, col]
-            valid = (column >= self.min_range) & (column <= self.max_range)
-
+        for col in range(self.num_angles):
             cluster_start = None
             cluster_last_range = None
             cluster_count = 0
             cluster_min_range = None
 
-            for row in range(h):
-                value = column[row]
+            for row in range(self.num_rows):
+                value = ranges[row, col]
 
-                if not valid[row]:
+                if (value < self.min_range) or (value > self.max_range):
+                    # pokud pixel neni platny (vzdalenost mimo povoleny rozsah)
+                    # uzavru cluster
                     if cluster_count >= self.min_obstacle_pixels:
                         self.store_obstacle_cluster(
                             col,
-                            w,
                             cluster_start,
                             row,
                             cluster_min_range,
@@ -276,28 +203,30 @@ class LidarInterpreter:
                             obstacle_strength,
                             obstacle_pixel_mask,
                         )
+                    # pripravim novy cluster
                     cluster_start = None
                     cluster_last_range = None
                     cluster_count = 0
                     cluster_min_range = None
-                    continue
-
-                if cluster_start is None:
+                elif cluster_start is None:
+                    # pokud jeste zadny cluster nebyl zalozen,
+                    # pripravim novy cluster s hodnotou, kterou ted vidim
                     cluster_start = row
                     cluster_last_range = value
                     cluster_count = 1
                     cluster_min_range = value
-                    continue
-
-                if abs(value - cluster_last_range) <= self.obstacle_range_tolerance:
+                elif abs(value - cluster_last_range) <= self.obstacle_range_tolerance:
+                    # pokud je hodnota pixelu podobna hodnote predchoziho pixelu,
+                    # pridam dalsi pixel do clusteru
                     cluster_last_range = value
                     cluster_count += 1
                     cluster_min_range = min(cluster_min_range, value)
                 else:
+                    # pokud je hodnota pixelu prilis vzdalena hodnote predchoziho pixelu,
+                    # uzaviram cluster
                     if cluster_count >= self.min_obstacle_pixels:
                         self.store_obstacle_cluster(
                             col,
-                            w,
                             cluster_start,
                             row,
                             cluster_min_range,
@@ -311,13 +240,14 @@ class LidarInterpreter:
                     cluster_last_range = value
                     cluster_count = 1
                     cluster_min_range = value
-
+                # end for
+            # vyresim posledni mozny cluster, ktery mohl zustat neuzavreny,
+            # kdyz for cyklus skoncil
             if cluster_count >= self.min_obstacle_pixels:
                 self.store_obstacle_cluster(
                     col,
-                    w,
                     cluster_start,
-                    h,
+                    self.num_rows,
                     cluster_min_range,
                     cluster_count,
                     obstacle_distances,
@@ -325,7 +255,6 @@ class LidarInterpreter:
                     obstacle_strength,
                     obstacle_pixel_mask,
                 )
-
         return {
             "obstacle_distances": obstacle_distances,
             "obstacle_counts": obstacle_counts,
@@ -346,14 +275,12 @@ class LidarInterpreter:
                 Dictionary containing hole distance, count, strength,
                 and pixel mask maps.
         """
-        h, w = ranges.shape
+        hole_distances = np.full(self.num_angles, np.nan)
+        hole_counts = np.zeros(self.num_angles, dtype=int)
+        hole_strength = np.zeros(self.num_angles, dtype=float)
+        hole_pixel_mask = np.zeros((self.num_rows - 1, self.num_angles), dtype=bool)
 
-        hole_distances = np.full(self.number_of_bins, np.nan)
-        hole_counts = np.zeros(self.number_of_bins, dtype=int)
-        hole_strength = np.zeros(self.number_of_bins, dtype=float)
-        hole_pixel_mask = np.zeros((h - 1, w), dtype=bool)
-
-        for row in range(h - 1):
+        for row in range(self.num_rows - 1):
             r1 = ranges[row, :]
             r2 = ranges[row + 1, :]
 
@@ -380,7 +307,6 @@ class LidarInterpreter:
             candidate_columns = np.nonzero(candidates)[0]
 
             for col in candidate_columns:
-                bin_index = self.column_to_bin(col, w)
                 distance = near[col]
                 strength = min(
                     jump[col] / self.hole_min_range_jump,
@@ -389,7 +315,7 @@ class LidarInterpreter:
                 strength = max(0.0, min(1.0, strength))
 
                 self.store_nearest_detection(
-                    bin_index,
+                    col,
                     distance,
                     1,
                     strength,
@@ -408,7 +334,6 @@ class LidarInterpreter:
     def store_obstacle_cluster(
         self,
         col,
-        width,
         row_start,
         row_end,
         distance,
@@ -421,11 +346,10 @@ class LidarInterpreter:
         """
         Stores one detected obstacle cluster into angular output maps.
         """
-        bin_index = self.column_to_bin(col, width)
         strength = min(1.0, count / self.min_obstacle_pixels)
 
         self.store_nearest_detection(
-            bin_index,
+            col,
             distance,
             count,
             strength,
@@ -438,57 +362,39 @@ class LidarInterpreter:
 
     def store_nearest_detection(
         self,
-        bin_index,
+        col,
         distance,
         count,
         strength,
-        distances,
-        counts,
-        strengths,
+        obstacle_distances,
+        obstacle_counts,
+        obstacle_strength,
     ):
         """
         Stores a detection if it is closer than the current detection
-        in the same angular bin.
+        in the same angular direction.
         """
-        if np.isnan(distances[bin_index]) or distance < distances[bin_index]:
-            distances[bin_index] = distance
-            counts[bin_index] = count
-            strengths[bin_index] = strength
-        elif distance == distances[bin_index]:
-            counts[bin_index] += count
-            strengths[bin_index] = max(strengths[bin_index], strength)
+        if np.isnan(obstacle_distances[col]) or distance < obstacle_distances[col]:
+            obstacle_distances[col] = distance
+            obstacle_counts[col] = count
+            obstacle_strength[col] = strength
+        elif distance == obstacle_distances[col]:
+            obstacle_counts[col] += count
+            obstacle_strength[col] = max(obstacle_strength[col], strength)
 
-    def merge_nearest_distances(
-        self,
-        target_distances,
-        target_counts,
-        target_strength,
-        source_distances,
-        source_counts,
-        source_strength,
-    ):
+    def get_num_angles(self):
         """
-        Merges angular detections by keeping the nearest distance
-        in each angular bin.
+        Returns the number of angular directions used by the latest scan.
         """
-        valid = np.isfinite(source_distances)
+        return self.num_angles
 
-        update_empty = valid & np.isnan(target_distances)
-        target_distances[update_empty] = source_distances[update_empty]
-        target_counts[update_empty] = source_counts[update_empty]
-        target_strength[update_empty] = source_strength[update_empty]
-
-        update_closer = valid & np.isfinite(target_distances) & (source_distances < target_distances)
-        target_distances[update_closer] = source_distances[update_closer]
-        target_counts[update_closer] = source_counts[update_closer]
-        target_strength[update_closer] = source_strength[update_closer]
-
-    def column_to_bin(self, col, width):
+    def get_angle_step_degrees(self):
         """
-        Converts lidar image column index to angular bin index.
+        Returns angular resolution [deg] derived from the latest scan.
         """
-        bin_index = int(col / width * self.number_of_bins)
-        return max(0, min(self.number_of_bins - 1, bin_index))
+        if self.num_angles is None:
+            return None
+        return 360.0 / self.num_angles
 
     def get_execution_times(self):
         """

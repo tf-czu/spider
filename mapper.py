@@ -12,7 +12,7 @@ class Mapper(Node):
     OSGAR node responsible for scan-based lidar interpretation.
 
     The Mapper receives raw lidar range scans from the OSGAR bus and forwards
-    them directly to LidarInterpreter. No point cloud is created in this branch.
+    them directly to LidarInterpreter. No point cloud is created.
 
     Input streams:
         - lidar_metadata
@@ -39,12 +39,11 @@ class Mapper(Node):
             bus:
                 OSGAR communication bus.
         """
-
         super().__init__(config, bus)
 
         self.verbose = False
 
-        self.interpreter = LidarInterpreter(output_frequency=1.0)
+        self.interpreter = LidarInterpreter()
 
         self.draw_timestamps = []
         self.draw_obstacle_distances = []
@@ -73,10 +72,9 @@ class Mapper(Node):
             data (numpy.array):
                 Lidar range scan of size H x W.
         """
-
         output = self.interpreter.update(self.time, data)
 
-        if self.verbose and output is not None:
+        if self.verbose:
             self.draw_timestamps.append(output["timestamp"])
             self.draw_obstacle_distances.append(output["obstacle_distances"])
             self.draw_hole_distances.append(output["hole_distances"])
@@ -101,7 +99,7 @@ class Mapper(Node):
         If verbose mode is enabled, this method shows three maps:
             - angular obstacle-distance map
             - angular hole-distance map
-            - pixel masks of the latest interpreted scan
+            - pixel masks of the interpreted scan
 
         Keyboard controls:
             right arrow ... next frame
@@ -122,8 +120,6 @@ class Mapper(Node):
             print("No maps to draw.")
             return
 
-        #fig, (ax_obstacles, ax_holes, ax_pixels) = plt.subplots(1, 3, figsize=(18, 6))
-
         fig, (ax_obstacles, ax_holes, ax_pixels) = plt.subplots(
             1,
             3,
@@ -133,14 +129,14 @@ class Mapper(Node):
 
         idx = 0
 
+        obstacle_distances = obstacle_maps[idx]
         angles = np.linspace(
             0.0,
             2.0 * np.pi,
-            self.interpreter.number_of_bins,
+            len(obstacle_distances),
             endpoint=False,
         )
 
-        obstacle_distances = obstacle_maps[idx]
         obstacle_valid = np.isfinite(obstacle_distances)
         obstacle_x = obstacle_distances[obstacle_valid] * np.cos(angles[obstacle_valid])
         obstacle_y = obstacle_distances[obstacle_valid] * np.sin(angles[obstacle_valid])
@@ -174,13 +170,6 @@ class Mapper(Node):
         if hole_mask.shape[0] == pixel_show.shape[0] - 1:
             pixel_show[:-1, :][hole_mask] = 2.0
 
-        #pixel_img = ax_pixels.imshow(
-        #    pixel_show,
-        #    origin="lower",
-        #    aspect="auto",
-        #    vmin=0.0,
-        #    vmax=2.0,
-        #)
         pixel_img = ax_pixels.imshow(
             pixel_show,
             origin="lower",
@@ -198,6 +187,13 @@ class Mapper(Node):
 
         def draw_update_image():
             obstacle_distances = obstacle_maps[idx]
+            angles = np.linspace(
+                0.0,
+                2.0 * np.pi,
+                len(obstacle_distances),
+                endpoint=False,
+            )
+
             obstacle_valid = np.isfinite(obstacle_distances)
             obstacle_x = obstacle_distances[obstacle_valid] * np.cos(angles[obstacle_valid])
             obstacle_y = obstacle_distances[obstacle_valid] * np.sin(angles[obstacle_valid])
