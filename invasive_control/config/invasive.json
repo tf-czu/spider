@@ -4,8 +4,8 @@
     "modules": {
 
       "app": {
-          "driver": "invasive:Invasive",
-          "in": ["pose2d", "pose3d", "nmea_data"],
+          "driver": "invasive_control.invasive:Invasive",
+          "in": ["pose3d", "nmea_data"],
           "out": ["desired_steering"],
           "init": {
             "waypoints": [
@@ -129,7 +129,6 @@
     },
     "links": [
               ["app.desired_steering", "transmitter.desired_steering"],
-              ["receiver.pose2d", "app.pose2d"],
               ["localization.pose3d", "app.pose3d"],
               ["gps.nmea_data", "app.nmea_data"],
 
