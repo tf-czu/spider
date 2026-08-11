@@ -44,24 +44,19 @@ class Invasive(Node):
     def on_bumpers(self, data):
         pass
 
-    def on_pose2d(self, data):
-        if data is not None:
-            x, y, __ = data
-            self.last_pose = [x/1000, y/1000]  # mm to m
-
     def on_pose3d(self, data):
-        if self.start_heading is not None:
+        if data:
             [x, y, z], quat = data
-            if self.start_q_heading is None:
-                self.start_q_heading = quaternion.heading(quat)
-                self.heading = self.start_heading
-            else:
-                q_heading = quaternion.heading(quat)
-                self.heading = normalizeAnglePIPI(self.start_heading + (q_heading - self.start_q_heading))   # diff q_heading - initial gps_heading
-                if self.verbose:
-                    pass
-                    # print(f"{self.time} Orientation - quaternion: {quat}, q_heading: {q_heading}, "
-                    #      f"start heading (gps based): {self.start_heading}")
+            self.last_pose = [x, y]
+            if self.start_heading is not None:
+                if self.start_q_heading is None:
+                    self.start_q_heading = quaternion.heading(quat)
+                    self.heading = self.start_heading
+                else:
+                    q_heading = quaternion.heading(quat)
+                    self.heading = normalizeAnglePIPI(self.start_heading + (q_heading - self.start_q_heading))   # diff q_heading - initial gps_heading
+                    if self.verbose:
+                        pass
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -94,10 +89,9 @@ class Invasive(Node):
 
     def go_straight(self, dist):
         print(self.time, 'Go straight')
-        assert self.last_pose is not None
         start_pose = self.last_pose
         while True:
-            if self.update() == 'pose2d':
+            if self.update() == 'pose3d':
                 if math.hypot(start_pose[0] - self.last_pose[0],
                               start_pose[1] - self.last_pose[1]) < dist:
                     self.send_speed_cmd(self.max_speed, 0)
@@ -110,7 +104,7 @@ class Invasive(Node):
         while self.dist2destination(waypoint) > 1:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
-            if self.update() == 'pose2d' and self.heading is not None:
+            if self.update() == 'pose3d' and self.heading is not None:
                 heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
                 if self.verbose:
                     print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
@@ -120,14 +114,18 @@ class Invasive(Node):
 
     def run(self):
         try:
+            # wait for sensors
             self.wait(1)
             assert self.last_pose is not None  # TODO add some initialization
+
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             if self.verbose:
                 self.debug_geo_poses_xy.append(([0, 0], None))
             self.start_geo_pose = self.last_geo_pose
+
             self.go_straight(5)
             self.start_heading = self.get_geo_angle(self.start_geo_pose, self.last_geo_pose)
+
             for waypoint in self.waypoints:
                 if self.verbose:
                     self.debug_waypoints_xy.append(self.gps_converter.geo2planar(waypoint))
