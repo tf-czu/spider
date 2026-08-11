@@ -112,6 +112,64 @@ def export_waypoints(segments, output_path, segment_index=1, step=10):
 
     return waypoints
 
+def plot_trajectory(segments, quality, title_suffix=""):
+    """Plot GPS trajectory segments on an OpenStreetMap background."""
+    # Aggregate coordinates for spatial bounds
+    all_lats = [pt[0] for seg in segments for pt in seg]
+    all_lons = [pt[1] for seg in segments for pt in seg]
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Color palette cycle for segments
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
+
+    # Plot each segment and add start label
+    for idx, seg in enumerate(segments, start=1):
+        seg_lats = [pt[0] for pt in seg]
+        seg_lons = [pt[1] for pt in seg]
+        color = colors[(idx - 1) % len(colors)]
+
+        ax.plot(
+            seg_lons,
+            seg_lats,
+            color=color,
+            linewidth=2,
+            marker='o',
+            markersize=3,
+            label=f'{idx}'
+        )
+
+        # Label start point of segment
+        ax.text(
+            seg_lons[0],
+            seg_lats[0],
+            f' {idx}',
+            fontsize=10,
+            fontweight='bold',
+            color=color,
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor=color)
+        )
+
+    # Set spatial boundary with margin
+    margin = 0.0003
+    ax.set_xlim(min(all_lons) - margin, max(all_lons) + margin)
+    ax.set_ylim(min(all_lats) - margin, max(all_lats) + margin)
+
+    # Fetch and add OpenStreetMap tile background
+    cx.add_basemap(
+        ax,
+        crs='EPSG:4326',
+        source=cx.providers.OpenStreetMap.Mapnik,
+        headers={'User-Agent': 'GPS_Trajectory_Visualizer/1.0'}
+    )
+
+    ax.set_title(f"GPS Trajectory Plot{title_suffix}, Quality={quality}")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+
+    plt.tight_layout()
+    plt.show()
+
 def main():
     parser = argparse.ArgumentParser(
         description='Plot GPS trajectory from NMEA $GPGGA messages, filtered by quality.'
@@ -165,63 +223,13 @@ def main():
             print(f"Error: {e}")
             sys.exit(1)
         print(f"Exported {len(waypoints)} waypoints to {args.export}")
+
+        # Convert exported [lon, lat] waypoints back to (lat, lon) tuples for plotting
+        exported_segment = [(lat, lon) for lon, lat in waypoints]
+        plot_trajectory([exported_segment], args.quality, title_suffix=" (Exported)")
         return
 
-    # Aggregate coordinates for spatial bounds
-    all_lats = [pt[0] for seg in segments for pt in seg]
-    all_lons = [pt[1] for seg in segments for pt in seg]
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-
-    # Color palette cycle for segments
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
-
-    # Plot each segment and add start label
-    for idx, seg in enumerate(segments, start=1):
-        seg_lats = [pt[0] for pt in seg]
-        seg_lons = [pt[1] for pt in seg]
-        color = colors[(idx - 1) % len(colors)]
-
-        ax.plot(
-            seg_lons,
-            seg_lats,
-            color=color,
-            linewidth=2,
-            marker='o',
-            markersize=3,
-            label=f'{idx}'
-        )
-
-        # Label start point of segment
-        ax.text(
-            seg_lons[0],
-            seg_lats[0],
-            f' {idx}',
-            fontsize=10,
-            fontweight='bold',
-            color=color,
-            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor=color)
-        )
-
-    # Set spatial boundary with margin
-    margin = 0.0003
-    ax.set_xlim(min(all_lons) - margin, max(all_lons) + margin)
-    ax.set_ylim(min(all_lats) - margin, max(all_lats) + margin)
-
-    # Fetch and add OpenStreetMap tile background
-    cx.add_basemap(
-        ax,
-        crs='EPSG:4326',
-        source=cx.providers.OpenStreetMap.Mapnik,
-        headers={'User-Agent': 'GPS_Trajectory_Visualizer/1.0'}
-    )
-
-    ax.set_title(f"GPS Trajectory Plot (Segmented, Quality={args.quality})")
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-
-    plt.tight_layout()
-    plt.show()
+    plot_trajectory(segments, args.quality, title_suffix=" (Segmented)")
 
 if __name__ == '__main__':
     main()
