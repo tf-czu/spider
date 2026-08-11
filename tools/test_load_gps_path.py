@@ -1,8 +1,14 @@
+import json
 import os
 import tempfile
 import unittest
 
-from tools.load_gps_path import load_segments, nmea_to_decimal, parse_nmea_time
+from tools.load_gps_path import (
+    export_waypoints,
+    load_segments,
+    nmea_to_decimal,
+    parse_nmea_time,
+)
 
 
 class TestNmeaToDecimal(unittest.TestCase):
@@ -144,6 +150,63 @@ class TestLoadSegments(unittest.TestCase):
 
         self.assertEqual(len(segments), 1)
         self.assertEqual(len(segments[0]), 2)
+
+
+class TestExportWaypoints(unittest.TestCase):
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix='.json')
+        os.close(fd)
+        self.addCleanup(os.unlink, self.path)
+
+    def test_exports_every_nth_point_with_last(self):
+        # 10 points (lat, lon); step=3 -> indices 0,3,6,9 + last (also index 9)
+        seg = [(float(i), float(10 + i)) for i in range(10)]
+        segments = [seg]
+
+        result = export_waypoints(segments, self.path, segment_index=1, step=3)
+
+        # indices 0,3,6,9 = 4 points; index 9 == last so no duplicate
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result[0], [10.0, 0.0])
+        self.assertEqual(result[1], [13.0, 3.0])
+        self.assertEqual(result[2], [16.0, 6.0])
+        self.assertEqual(result[3], [19.0, 9.0])
+
+    def test_always_includes_last_point_when_not_on_step(self):
+        # 10 points, step=4 -> indices 0,4,8; last is 9 -> appended
+        seg = [(float(i), float(20 + i)) for i in range(10)]
+        result = export_waypoints([seg], self.path, segment_index=1, step=4)
+
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result[0], [20.0, 0.0])
+        self.assertEqual(result[1], [24.0, 4.0])
+        self.assertEqual(result[2], [28.0, 8.0])
+        # last point appended
+        self.assertEqual(result[3], [29.0, 9.0])
+
+    def test_json_format_lon_lat(self):
+        seg = [(10.0, 50.0), (11.0, 51.0)]
+        export_waypoints([seg], self.path, segment_index=1, step=1)
+
+        with open(self.path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        self.assertIn('waypoints', data)
+        self.assertEqual(data['waypoints'], [[50.0, 10.0], [51.0, 11.0]])
+
+    def test_exports_selected_segment(self):
+        seg1 = [(1.0, 1.0), (2.0, 2.0)]
+        seg2 = [(10.0, 10.0), (11.0, 11.0), (12.0, 12.0)]
+        result = export_waypoints([seg1, seg2], self.path, segment_index=2, step=1)
+
+        self.assertEqual(result, [[10.0, 10.0], [11.0, 11.0], [12.0, 12.0]])
+
+    def test_invalid_segment_index_raises(self):
+        seg = [(1.0, 1.0)]
+        with self.assertRaises(IndexError):
+            export_waypoints([seg], self.path, segment_index=2)
+        with self.assertRaises(IndexError):
+            export_waypoints([seg], self.path, segment_index=0)
 
 
 if __name__ == '__main__':

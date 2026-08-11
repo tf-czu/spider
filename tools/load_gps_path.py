@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -75,6 +76,42 @@ def load_segments(filepath, threshold_seconds=5.0, quality=1):
 
     return segments
 
+def export_waypoints(segments, output_path, segment_index=1, step=10):
+    """Export waypoints from a selected segment to a JSON file.
+
+    Points are exported as [lon, lat] pairs, taking every `step`-th point.
+    The last point of the segment is always included.
+
+    Args:
+        segments: List of segments, each a list of (lat, lon) tuples.
+        output_path: Path to the output JSON file.
+        segment_index: 1-based index of the segment to export (default: 1).
+        step: Export every N-th point (default: 10).
+
+    Returns:
+        List of exported [lon, lat] waypoints.
+
+    Raises:
+        IndexError: If segment_index is out of range.
+    """
+    if segment_index < 1 or segment_index > len(segments):
+        raise IndexError(
+            f"Segment index {segment_index} out of range (1..{len(segments)})"
+        )
+
+    segment = segments[segment_index - 1]
+    waypoints = [[lon, lat] for lat, lon in segment[::step]]
+
+    # Always include the last point of the segment
+    last = [segment[-1][1], segment[-1][0]]
+    if waypoints[-1] != last:
+        waypoints.append(last)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump({'waypoints': waypoints}, f, indent=2)
+
+    return waypoints
+
 def main():
     parser = argparse.ArgumentParser(
         description='Plot GPS trajectory from NMEA $GPGGA messages, filtered by quality.'
@@ -91,6 +128,23 @@ def main():
         help='GPS quality indicator to filter points (default: 1). '
              '1 = GPS fix, 2 = DGPS fix, 4 = RTK fix'
     )
+    parser.add_argument(
+        '--export',
+        metavar='OUTPUT',
+        help='Export waypoints to the given JSON file instead of plotting'
+    )
+    parser.add_argument(
+        '--step',
+        type=int,
+        default=10,
+        help='Export every N-th point (default: 10)'
+    )
+    parser.add_argument(
+        '--segment',
+        type=int,
+        default=1,
+        help='1-based index of the segment to export (default: 1)'
+    )
     args = parser.parse_args()
 
     segments = load_segments(args.filepath, threshold_seconds=5.0, quality=args.quality)
@@ -98,6 +152,20 @@ def main():
     if not segments:
         print(f"Error: No valid $GPGGA coordinates with quality {args.quality} found in the file.")
         sys.exit(1)
+
+    if args.export:
+        try:
+            waypoints = export_waypoints(
+                segments,
+                args.export,
+                segment_index=args.segment,
+                step=args.step
+            )
+        except IndexError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+        print(f"Exported {len(waypoints)} waypoints to {args.export}")
+        return
 
     # Aggregate coordinates for spatial bounds
     all_lats = [pt[0] for seg in segments for pt in seg]
