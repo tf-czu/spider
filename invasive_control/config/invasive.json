@@ -9,7 +9,7 @@
           "out": ["desired_steering"],
           "init": {
             "waypoints_file": "invasive_control/data/path_czu_3.json",
-            "required_quality": 1,
+            "required_quality": 4,
             "straight_dist": 5,
             "sensor_wait_timeout": 10,
             "gps_recovery_timeout": 30
@@ -130,7 +130,7 @@
     "links": [
               ["app.desired_steering", "transmitter.desired_steering"],
               ["localization.pose3d", "app.pose3d"],
-              ["gps.nmea_data", "app.nmea_data"],
+              ["rtk_gps.nmea_data", "app.nmea_data"],
 
               ["reset.reset", "transmitter.reset"],
 
