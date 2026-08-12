@@ -2,6 +2,7 @@
   TODO
 """
 
+import json
 import math
 from datetime import timedelta
 
@@ -19,10 +20,19 @@ class Invasive(Node):
         super().__init__(config, bus)
         bus.register('desired_steering')
         self.max_speed = config.get('max_speed', 0.4)
-        self.waypoints = config.get('waypoints', [])
+        waypoints_file = config.get('waypoints_file')
+        if waypoints_file:
+            self.waypoints = self.load_waypoints(waypoints_file)
+        else:
+            self.waypoints = config.get('waypoints', [])  # backward compatibility
+        self.required_quality = config.get('required_quality', 1)
+        self.straight_dist = config.get('straight_dist', 5)
+        self.sensor_wait_timeout = config.get('sensor_wait_timeout', 10)
+        self.gps_recovery_timeout = config.get('gps_recovery_timeout', 30)
         self.start_geo_pose = None
         self.last_pose = None
         self.last_geo_pose = None
+        self.last_gps_quality = None
         self.gps_converter = None
         self.start_heading = None
         self.start_q_heading = None
@@ -31,6 +41,14 @@ class Invasive(Node):
         # verbose
         self.debug_geo_poses_xy = []  # including heading
         self.debug_waypoints_xy = []
+
+    def load_waypoints(self, path):
+        """Load waypoints from a JSON file with 'waypoints' key."""
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if 'waypoints' not in data:
+            raise ValueError(f"Missing 'waypoints' key in {path}")
+        return data['waypoints']
 
     def send_speed_cmd(self, speed, steering_angle):  # angle in radians
         if self.verbose:
@@ -44,29 +62,25 @@ class Invasive(Node):
     def on_bumpers(self, data):
         pass
 
-    def on_pose2d(self, data):
-        if data is not None:
-            x, y, __ = data
-            self.last_pose = [x/1000, y/1000]  # mm to m
-
     def on_pose3d(self, data):
-        if self.start_heading is not None:
+        if data:
             [x, y, z], quat = data
-            if self.start_q_heading is None:
-                self.start_q_heading = quaternion.heading(quat)
-                self.heading = self.start_heading
-            else:
-                q_heading = quaternion.heading(quat)
-                self.heading = normalizeAnglePIPI(self.start_heading + (q_heading - self.start_q_heading))   # diff q_heading - initial gps_heading
-                if self.verbose:
-                    pass
-                    # print(f"{self.time} Orientation - quaternion: {quat}, q_heading: {q_heading}, "
-                    #      f"start heading (gps based): {self.start_heading}")
+            self.last_pose = [x, y]
+            if self.start_heading is not None:
+                if self.start_q_heading is None:
+                    self.start_q_heading = quaternion.heading(quat)
+                    self.heading = self.start_heading
+                else:
+                    q_heading = quaternion.heading(quat)
+                    self.heading = normalizeAnglePIPI(self.start_heading + (q_heading - self.start_q_heading))   # diff q_heading - initial gps_heading
+                    if self.verbose:
+                        pass
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
         assert 'lon' in data, data
         lat, lon = data['lat'], data['lon']
+        self.last_gps_quality = data.get('quality')
         if lat is not None and lon is not None:
             self.last_geo_pose = [lon, lat]
             if self.verbose and self.gps_converter is not None:
@@ -81,6 +95,45 @@ class Invasive(Node):
         while self.time - start_time < timedelta(seconds=duration):
             self.update()
 
+    def check_pose(self):
+        """Check if pose (pose3d) is available."""
+        return self.last_pose is not None
+
+    def check_gps(self):
+        """Check if GPS position is available and quality is sufficient."""
+        return (self.last_geo_pose is not None and
+                self.last_gps_quality is not None and
+                self.last_gps_quality >= self.required_quality)
+
+    def check_sensors(self):
+        """Check availability and quality of all required sensors."""
+        return self.check_pose() and self.check_gps()
+
+    def wait_for_sensors(self, timeout):
+        """Wait for sensors to become available, up to `timeout` seconds."""
+        if self.time is None:
+            self.update()
+        start_time = self.time
+        while self.time - start_time < timedelta(seconds=timeout):
+            if self.check_sensors():
+                return True
+            self.wait(1)
+        return self.check_sensors()
+
+    def ensure_sensors(self):
+        """Ensure sensors are available during navigation.
+
+        If pose is lost, raise a serious error. If GPS is lost, stop and wait
+        for recovery.
+        """
+        if not self.check_pose():
+            raise RuntimeError("Pose lost during navigation")
+        if not self.check_gps():
+            self.send_speed_cmd(0, 0)
+            print(self.time, "GPS lost, waiting for recovery...")
+            if not self.wait_for_sensors(self.gps_recovery_timeout):
+                raise RuntimeError("GPS not recovered")
+
     @staticmethod
     def get_geo_angle(start_geo_pose, geo_pose):
         lon_diff = geo_pose[0] - start_geo_pose[0]
@@ -94,10 +147,10 @@ class Invasive(Node):
 
     def go_straight(self, dist):
         print(self.time, 'Go straight')
-        assert self.last_pose is not None
         start_pose = self.last_pose
         while True:
-            if self.update() == 'pose2d':
+            if self.update() == 'pose3d':
+                self.ensure_sensors()
                 if math.hypot(start_pose[0] - self.last_pose[0],
                               start_pose[1] - self.last_pose[1]) < dist:
                     self.send_speed_cmd(self.max_speed, 0)
@@ -107,27 +160,33 @@ class Invasive(Node):
 
     def navigate_to_waypoints(self, waypoint):
         print(f"Navigate to wp ({waypoint}), distance: {self.dist2destination(waypoint)}")
-        while self.dist2destination(waypoint) > 1:
+        while self.dist2destination(waypoint) > 1.0:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
-            if self.update() == 'pose2d' and self.heading is not None:
-                heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
-                if self.verbose:
-                    print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
-                          f"heading: {self.heading}, heading_diff: {heading_diff}")
-                self.send_speed_cmd(self.max_speed, heading_diff)
+            if self.update() == 'pose3d':
+                self.ensure_sensors()
+                if self.heading is not None:
+                    heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
+                    if self.verbose:
+                        print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
+                              f"heading: {self.heading}, heading_diff: {heading_diff}")
+                    self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
         try:
-            self.wait(1)
-            assert self.last_pose is not None  # TODO add some initialization
+            # wait for sensors
+            if not self.wait_for_sensors(self.sensor_wait_timeout):
+                raise RuntimeError("Sensors not available at startup")
+
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             if self.verbose:
                 self.debug_geo_poses_xy.append(([0, 0], None))
             self.start_geo_pose = self.last_geo_pose
-            self.go_straight(5)
+
+            self.go_straight(self.straight_dist)
             self.start_heading = self.get_geo_angle(self.start_geo_pose, self.last_geo_pose)
+
             for waypoint in self.waypoints:
                 if self.verbose:
                     self.debug_waypoints_xy.append(self.gps_converter.geo2planar(waypoint))
