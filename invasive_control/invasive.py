@@ -20,9 +20,14 @@ class Invasive(Node):
         bus.register('desired_steering')
         self.max_speed = config.get('max_speed', 0.4)
         self.waypoints = config.get('waypoints', [])
+        self.required_quality = config.get('required_quality', 1)
+        self.straight_dist = config.get('straight_dist', 5)
+        self.sensor_wait_timeout = config.get('sensor_wait_timeout', 10)
+        self.gps_recovery_timeout = config.get('gps_recovery_timeout', 30)
         self.start_geo_pose = None
         self.last_pose = None
         self.last_geo_pose = None
+        self.last_gps_quality = None
         self.gps_converter = None
         self.start_heading = None
         self.start_q_heading = None
@@ -62,6 +67,7 @@ class Invasive(Node):
         assert 'lat' in data, data
         assert 'lon' in data, data
         lat, lon = data['lat'], data['lon']
+        self.last_gps_quality = data.get('quality')
         if lat is not None and lon is not None:
             self.last_geo_pose = [lon, lat]
             if self.verbose and self.gps_converter is not None:
@@ -75,6 +81,45 @@ class Invasive(Node):
         start_time = self.time
         while self.time - start_time < timedelta(seconds=duration):
             self.update()
+
+    def check_pose(self):
+        """Check if pose (pose3d) is available."""
+        return self.last_pose is not None
+
+    def check_gps(self):
+        """Check if GPS position is available and quality is sufficient."""
+        return (self.last_geo_pose is not None and
+                self.last_gps_quality is not None and
+                self.last_gps_quality >= self.required_quality)
+
+    def check_sensors(self):
+        """Check availability and quality of all required sensors."""
+        return self.check_pose() and self.check_gps()
+
+    def wait_for_sensors(self, timeout):
+        """Wait for sensors to become available, up to `timeout` seconds."""
+        if self.time is None:
+            self.update()
+        start_time = self.time
+        while self.time - start_time < timedelta(seconds=timeout):
+            if self.check_sensors():
+                return True
+            self.wait(1)
+        return self.check_sensors()
+
+    def ensure_sensors(self):
+        """Ensure sensors are available during navigation.
+
+        If pose is lost, raise a serious error. If GPS is lost, stop and wait
+        for recovery.
+        """
+        if not self.check_pose():
+            raise RuntimeError("Pose lost during navigation")
+        if not self.check_gps():
+            self.send_speed_cmd(0, 0)
+            print(self.time, "GPS lost, waiting for recovery...")
+            if not self.wait_for_sensors(self.gps_recovery_timeout):
+                raise RuntimeError("GPS not recovered")
 
     @staticmethod
     def get_geo_angle(start_geo_pose, geo_pose):
@@ -92,6 +137,7 @@ class Invasive(Node):
         start_pose = self.last_pose
         while True:
             if self.update() == 'pose3d':
+                self.ensure_sensors()
                 if math.hypot(start_pose[0] - self.last_pose[0],
                               start_pose[1] - self.last_pose[1]) < dist:
                     self.send_speed_cmd(self.max_speed, 0)
@@ -104,26 +150,28 @@ class Invasive(Node):
         while self.dist2destination(waypoint) > 1:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
-            if self.update() == 'pose3d' and self.heading is not None:
-                heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
-                if self.verbose:
-                    print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
-                          f"heading: {self.heading}, heading_diff: {heading_diff}")
-                self.send_speed_cmd(self.max_speed, heading_diff)
+            if self.update() == 'pose3d':
+                self.ensure_sensors()
+                if self.heading is not None:
+                    heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
+                    if self.verbose:
+                        print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
+                              f"heading: {self.heading}, heading_diff: {heading_diff}")
+                    self.send_speed_cmd(self.max_speed, heading_diff)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
         try:
             # wait for sensors
-            self.wait(1)
-            assert self.last_pose is not None  # TODO add some initialization
+            if not self.wait_for_sensors(self.sensor_wait_timeout):
+                raise RuntimeError("Sensors not available at startup")
 
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             if self.verbose:
                 self.debug_geo_poses_xy.append(([0, 0], None))
             self.start_geo_pose = self.last_geo_pose
 
-            self.go_straight(5)
+            self.go_straight(self.straight_dist)
             self.start_heading = self.get_geo_angle(self.start_geo_pose, self.last_geo_pose)
 
             for waypoint in self.waypoints:
