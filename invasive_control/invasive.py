@@ -160,7 +160,7 @@ class Invasive(Node):
 
     def navigate_to_waypoints(self, waypoint):
         print(f"Navigate to wp ({waypoint}), distance: {self.dist2destination(waypoint)}")
-        while self.dist2destination(waypoint) > 1:
+        while self.dist2destination(waypoint) > 0.2:
             if self.verbose:
                 print("Dist: ", self.dist2destination(waypoint))
             if self.update() == 'pose3d':
