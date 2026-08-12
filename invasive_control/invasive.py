@@ -2,6 +2,7 @@
   TODO
 """
 
+import json
 import math
 from datetime import timedelta
 
@@ -19,7 +20,11 @@ class Invasive(Node):
         super().__init__(config, bus)
         bus.register('desired_steering')
         self.max_speed = config.get('max_speed', 0.4)
-        self.waypoints = config.get('waypoints', [])
+        waypoints_file = config.get('waypoints_file')
+        if waypoints_file:
+            self.waypoints = self.load_waypoints(waypoints_file)
+        else:
+            self.waypoints = config.get('waypoints', [])  # backward compatibility
         self.required_quality = config.get('required_quality', 1)
         self.straight_dist = config.get('straight_dist', 5)
         self.sensor_wait_timeout = config.get('sensor_wait_timeout', 10)
@@ -36,6 +41,14 @@ class Invasive(Node):
         # verbose
         self.debug_geo_poses_xy = []  # including heading
         self.debug_waypoints_xy = []
+
+    def load_waypoints(self, path):
+        """Load waypoints from a JSON file with 'waypoints' key."""
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if 'waypoints' not in data:
+            raise ValueError(f"Missing 'waypoints' key in {path}")
+        return data['waypoints']
 
     def send_speed_cmd(self, speed, steering_angle):  # angle in radians
         if self.verbose:

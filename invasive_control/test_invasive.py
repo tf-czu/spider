@@ -1,4 +1,7 @@
+import json
 import math
+import os
+import tempfile
 import unittest
 from datetime import timedelta
 from unittest.mock import MagicMock
@@ -14,6 +17,48 @@ def make_app(config=None):
     bus = Bus(MagicMock())
     app = Invasive(config=config or {}, bus=bus.handle('app'))
     return app
+
+
+class TestLoadWaypoints(unittest.TestCase):
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix='.json')
+        os.close(fd)
+        self.addCleanup(os.unlink, self.path)
+
+    def _write_json(self, data):
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+
+    def test_load_waypoints_from_file(self):
+        self._write_json({'waypoints': [[14.0, 50.0], [14.1, 50.1]]})
+        app = make_app()
+        waypoints = app.load_waypoints(self.path)
+        self.assertEqual(waypoints, [[14.0, 50.0], [14.1, 50.1]])
+
+    def test_load_waypoints_missing_key(self):
+        self._write_json({'other': []})
+        app = make_app()
+        with self.assertRaises(ValueError):
+            app.load_waypoints(self.path)
+
+    def test_load_waypoints_file_not_found(self):
+        app = make_app()
+        with self.assertRaises(FileNotFoundError):
+            app.load_waypoints('/nonexistent/path.json')
+
+    def test_waypoints_from_config_file(self):
+        self._write_json({'waypoints': [[14.0, 50.0], [14.1, 50.1]]})
+        app = make_app({'waypoints_file': self.path})
+        self.assertEqual(app.waypoints, [[14.0, 50.0], [14.1, 50.1]])
+
+    def test_waypoints_from_config_direct(self):
+        # backward compatibility: waypoints directly in config
+        app = make_app({'waypoints': [[14.0, 50.0]]})
+        self.assertEqual(app.waypoints, [[14.0, 50.0]])
+
+    def test_waypoints_empty_when_not_configured(self):
+        app = make_app()
+        self.assertEqual(app.waypoints, [])
 
 
 class TestOnPose3d(unittest.TestCase):
