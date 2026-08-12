@@ -6,8 +6,10 @@ import unittest
 from tools.load_gps_path import (
     export_waypoints,
     load_segments,
+    load_waypoints_from_json,
     nmea_to_decimal,
     parse_nmea_time,
+    plot_trajectory,
 )
 
 
@@ -47,6 +49,68 @@ class TestParseNmeaTime(unittest.TestCase):
 
     def test_invalid_value(self):
         self.assertIsNone(parse_nmea_time('not-a-time'))
+
+
+class TestPlotTrajectory(unittest.TestCase):
+    def _mock_axes(self):
+        """Create mock fig/ax for plot_trajectory, capturing plot/text calls."""
+        from unittest.mock import MagicMock
+        self.ax = MagicMock()
+        self.fig = MagicMock()
+        self.plot_calls = []
+        self.text_calls = []
+
+        def fake_plot(*args, **kwargs):
+            self.plot_calls.append((args, kwargs))
+            return []
+        def fake_text(*args, **kwargs):
+            self.text_calls.append((args, kwargs))
+            return MagicMock()
+
+        self.ax.plot.side_effect = fake_plot
+        self.ax.text.side_effect = fake_text
+
+        return self.fig, self.ax
+
+    def test_segment_labels_are_numbered(self):
+        """Verify that plot_trajectory assigns incrementing labels to segments."""
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        segments = [
+            [(50.0, 14.0), (50.1, 14.1)],
+            [(50.2, 14.2), (50.3, 14.3)],
+            [(50.4, 14.4), (50.5, 14.5)],
+        ]
+
+        fig, ax = self._mock_axes()
+        with unittest.mock.patch('tools.load_gps_path.plt.subplots', return_value=(fig, ax)), \
+             unittest.mock.patch('tools.load_gps_path.cx.add_basemap'):
+            plot_trajectory(segments, 1, title_suffix=" (Segmented)")
+
+        # Should have called text() once per segment with label '1', '2', '3'
+        labels = [args[2] if len(args) > 2 else kwargs.get('s') for args, kwargs in self.text_calls]
+        self.assertEqual(labels, ['1', '2', '3'])
+
+    def test_custom_label_used_for_all_segments(self):
+        """Verify that a custom label is used for all segments."""
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        segments = [
+            [(50.0, 14.0), (50.1, 14.1)],
+            [(50.2, 14.2), (50.3, 14.3)],
+        ]
+
+        fig, ax = self._mock_axes()
+        with unittest.mock.patch('tools.load_gps_path.plt.subplots', return_value=(fig, ax)), \
+             unittest.mock.patch('tools.load_gps_path.cx.add_basemap'):
+            plot_trajectory(segments, None, title_suffix=" (Waypoints)", label="wp")
+
+        labels = [args[2] if len(args) > 2 else kwargs.get('s') for args, kwargs in self.text_calls]
+        self.assertEqual(labels, ['wp', 'wp'])
 
 
 class TestLoadSegments(unittest.TestCase):
@@ -150,6 +214,46 @@ class TestLoadSegments(unittest.TestCase):
 
         self.assertEqual(len(segments), 1)
         self.assertEqual(len(segments[0]), 2)
+
+
+class TestLoadWaypointsFromJson(unittest.TestCase):
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix='.json')
+        os.close(fd)
+        self.addCleanup(os.unlink, self.path)
+
+    def _write_json(self, data):
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+
+    def test_load_waypoints_from_json(self):
+        self._write_json({'waypoints': [[14.0, 50.0], [14.1, 50.1]]})
+        segments = load_waypoints_from_json(self.path)
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0], [(50.0, 14.0), (50.1, 14.1)])
+
+    def test_load_waypoints_missing_key(self):
+        self._write_json({'other': []})
+        with self.assertRaises(ValueError):
+            load_waypoints_from_json(self.path)
+
+    def test_load_waypoints_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            load_waypoints_from_json('/nonexistent/path.json')
+
+    def test_load_waypoints_empty(self):
+        self._write_json({'waypoints': []})
+        self.assertEqual(load_waypoints_from_json(self.path), [])
+
+    def test_nmea_file_still_works(self):
+        # NMEA file should not be treated as JSON waypoints
+        content = '$GPGGA,100000.00,5005.1234,N,01430.5678,E,1,08,0.9,545.4,M,46.9,M,,*47\n'
+        fd, nmea_path = tempfile.mkstemp(suffix='.nmea')
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+        self.addCleanup(os.unlink, nmea_path)
+        with self.assertRaises(json.JSONDecodeError):
+            load_waypoints_from_json(nmea_path)
 
 
 class TestExportWaypoints(unittest.TestCase):

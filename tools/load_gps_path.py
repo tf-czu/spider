@@ -76,6 +76,27 @@ def load_segments(filepath, threshold_seconds=5.0, quality=1):
 
     return segments
 
+def load_waypoints_from_json(filepath):
+    """Load waypoints from a JSON file with 'waypoints' key.
+
+    The JSON file is expected to have the format:
+    {"waypoints": [[lon, lat], [lon, lat], ...]}
+
+    Returns:
+        List of segments (each a list of (lat, lon) tuples), compatible
+        with the output of load_segments().
+    """
+    with open(filepath, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    if 'waypoints' not in data:
+        raise ValueError(f"Missing 'waypoints' key in {filepath}")
+    waypoints = data['waypoints']
+    if not waypoints:
+        return []
+    # Convert [lon, lat] pairs to (lat, lon) tuples for plot_trajectory compatibility
+    segment = [(lat, lon) for lon, lat in waypoints]
+    return [segment]
+
 def export_waypoints(segments, output_path, segment_index=1, step=10):
     """Export waypoints from a selected segment to a JSON file.
 
@@ -112,7 +133,7 @@ def export_waypoints(segments, output_path, segment_index=1, step=10):
 
     return waypoints
 
-def plot_trajectory(segments, quality, title_suffix="", label = None):
+def plot_trajectory(segments, quality=None, title_suffix="", label = None):
     """Plot GPS trajectory segments on an OpenStreetMap background."""
     # Aggregate coordinates for spatial bounds
     all_lats = [pt[0] for seg in segments for pt in seg]
@@ -128,8 +149,7 @@ def plot_trajectory(segments, quality, title_suffix="", label = None):
         seg_lats = [pt[0] for pt in seg]
         seg_lons = [pt[1] for pt in seg]
         color = colors[(idx - 1) % len(colors)]
-        if label is None:
-            label = f'{idx}'
+        seg_label = label if label is not None else f'{idx}'
 
         ax.plot(
             seg_lons,
@@ -138,14 +158,14 @@ def plot_trajectory(segments, quality, title_suffix="", label = None):
             linewidth=2,
             marker='o',
             markersize=3,
-            label=label
+            label=seg_label
         )
 
         # Label start point of segment
         ax.text(
             seg_lons[0],
             seg_lats[0],
-            label,
+            seg_label,
             fontsize=10,
             fontweight='bold',
             color=color,
@@ -165,7 +185,10 @@ def plot_trajectory(segments, quality, title_suffix="", label = None):
         headers={'User-Agent': 'GPS_Trajectory_Visualizer/1.0'}
     )
 
-    ax.set_title(f"GPS Trajectory Plot{title_suffix}, Quality={quality}")
+    title = f"GPS Trajectory Plot{title_suffix}"
+    if quality is not None:
+        title += f", Quality={quality}"
+    ax.set_title(title)
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
@@ -206,6 +229,17 @@ def main():
         help='1-based index of the segment to export (default: 1)'
     )
     args = parser.parse_args()
+
+    # Detect if the input file is a JSON waypoints file (e.g. path_czu_3.json)
+    json_segments = None
+    try:
+        json_segments = load_waypoints_from_json(args.filepath)
+    except (json.JSONDecodeError, FileNotFoundError):
+        json_segments = None
+
+    if json_segments is not None:
+        plot_trajectory(json_segments, None, title_suffix=" (Waypoints)", label="wp")
+        return
 
     segments = load_segments(args.filepath, threshold_seconds=5.0, quality=args.quality)
 
