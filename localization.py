@@ -61,7 +61,7 @@ class Localization(Node):
 
         # the source of odometry
         self.odometry_from = None
-        # last x, y coordinates obrained from odometry, if odometry_from == "pose2d"
+        # last x, y coordinates obtained from odometry, if odometry_from == "pose2d"
         self.last_xy = None
         # scale coefficient to convert odometry ticks to meters, if odometry_from == "encoders"
         # (should be 0.00218 for spider robot)
@@ -105,11 +105,11 @@ class Localization(Node):
                     * "quality" ... quality of the GPS signal
                         (https://receiverhelp.trimble.com/alloy-gnss/en-us/NMEA-0183messages_GGA.html):
 
-                        - 0 ... špatně
-                        - 1 ... obyč gps
-                        - 2 ... lepší gps
-                        - 4 ... RTK gps - velmi přesné
-                        - 5 ... float rtk, asi lepší než 1, ale potenciálně nevyzpytatelné
+                        - 0 ... No fix
+                        - 1 ... gps fix
+                        - 2 ... d-gps fix
+                        - 4 ... RTK fix
+                        - 5 ... float rtk
         """
         if self.on_the_way:
             if data["quality"] != 0:
@@ -160,7 +160,7 @@ class Localization(Node):
                     where:
                     * `x` ... x-coordinate in [mm] originating from odometry
                     * `y` ... y-coordinate in [mm] originating from odometry
-                    * `heading` ... angle (?)
+                    * `heading` ... angle (deg * 100)
         """
         if self.odometry_from is None:
             self.odometry_from = "pose2d"
