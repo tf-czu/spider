@@ -112,7 +112,7 @@ def export_waypoints(segments, output_path, segment_index=1, step=10):
 
     return waypoints
 
-def plot_trajectory(segments, quality, title_suffix=""):
+def plot_trajectory(segments, quality, title_suffix="", label = None):
     """Plot GPS trajectory segments on an OpenStreetMap background."""
     # Aggregate coordinates for spatial bounds
     all_lats = [pt[0] for seg in segments for pt in seg]
@@ -128,6 +128,8 @@ def plot_trajectory(segments, quality, title_suffix=""):
         seg_lats = [pt[0] for pt in seg]
         seg_lons = [pt[1] for pt in seg]
         color = colors[(idx - 1) % len(colors)]
+        if label is None:
+            label = f'{idx}'
 
         ax.plot(
             seg_lons,
@@ -136,14 +138,14 @@ def plot_trajectory(segments, quality, title_suffix=""):
             linewidth=2,
             marker='o',
             markersize=3,
-            label=f'{idx}'
+            label=label
         )
 
         # Label start point of segment
         ax.text(
             seg_lons[0],
             seg_lats[0],
-            f' {idx}',
+            label,
             fontsize=10,
             fontweight='bold',
             color=color,
@@ -226,7 +228,7 @@ def main():
 
         # Convert exported [lon, lat] waypoints back to (lat, lon) tuples for plotting
         exported_segment = [(lat, lon) for lon, lat in waypoints]
-        plot_trajectory([exported_segment], args.quality, title_suffix=" (Exported)")
+        plot_trajectory([exported_segment], args.quality, title_suffix=" (Exported)", label=f"{args.segment}")
         return
 
     plot_trajectory(segments, args.quality, title_suffix=" (Segmented)")
