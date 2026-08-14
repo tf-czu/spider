@@ -5,7 +5,7 @@
 
       "app": {
           "driver": "invasive_control.invasive:Invasive",
-          "in": ["pose3d", "nmea_data"],
+          "in": ["pose3d", "nmea_data", "pose2d"],
           "out": ["desired_steering"],
           "init": {
             "waypoints_file": "invasive_control/data/path_czu_3.json",
@@ -146,8 +146,9 @@
     },
     "links": [
               ["app.desired_steering", "transmitter.desired_steering"],
-              ["localization.pose3d", "app.pose3d"],
+              ["receiver.pose2d", "app.pose2d"],
               ["rtk_gps.nmea_data", "app.nmea_data"],
+              ["lsqr.pose3d", "app.pose3d"],
 
               ["reset.reset", "transmitter.reset"],
 

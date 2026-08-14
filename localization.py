@@ -235,6 +235,7 @@ class Localization(Node):
         #print(self.time, distance, self.distance_travelled, self.initial_dumb_distance, self.on_the_way)
         # for debugging
         if self.verbose:
+            print(self.time, self.pose3d)
             if self.pose3d is not None:
                 xyz, ori = self.pose3d
                 if xyz is not None:

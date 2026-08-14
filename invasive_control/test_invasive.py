@@ -62,14 +62,26 @@ class TestLoadWaypoints(unittest.TestCase):
 
 
 class TestOnPose3d(unittest.TestCase):
-    def test_stores_position(self):
+    def test_stores_heading(self):
         app = make_app()
         app.on_pose3d([[1.0, 2.0, 0.0], [1.0, 0.0, 0.0, 0.0]])
-        self.assertEqual(app.last_pose, [1.0, 2.0])
+        self.assertIsNotNone(app.heading)
 
     def test_ignores_empty_data(self):
         app = make_app()
         app.on_pose3d(None)
+        self.assertIsNone(app.heading)
+
+
+class TestOnPose2d(unittest.TestCase):
+    def test_stores_position_mm_to_m(self):
+        app = make_app()
+        app.on_pose2d([1000, 2000, 9000])
+        self.assertEqual(app.last_pose, [1.0, 2.0])
+
+    def test_ignores_empty_data(self):
+        app = make_app()
+        app.on_pose2d(None)
         self.assertIsNone(app.last_pose)
 
 
