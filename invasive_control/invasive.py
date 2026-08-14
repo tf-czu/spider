@@ -165,7 +165,7 @@ class Invasive(Node):
                     if self.verbose:
                         print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
                               f"heading: {self.heading}, heading_diff: {heading_diff}")
-                    self.send_speed_cmd(self.max_speed, heading_diff)
+                    self.send_speed_cmd(self.max_speed, heading_diff*0.5)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
