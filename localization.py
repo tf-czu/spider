@@ -128,6 +128,10 @@ class Localization(Node):
                 if self.verbose:
                     self.plot_gps.append(self.gps_xyz)
                     self.rmsd_gps_rtk.add_A(self.time, self.gps_xyz)
+        if self.verbose:
+            # We are currently using RTK as our main GNSS sensor.
+            # The future assessment of positioning quality needs to be moved elsewhere.
+            self.on_rtk(data)  # TODO
 
     def on_rtk(self, data):
         """
