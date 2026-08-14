@@ -29,13 +29,10 @@ class Invasive(Node):
         self.straight_dist = config.get('straight_dist', 5)
         self.sensor_wait_timeout = config.get('sensor_wait_timeout', 10)
         self.gps_recovery_timeout = config.get('gps_recovery_timeout', 30)
-        self.start_geo_pose = None
         self.last_pose = None
         self.last_geo_pose = None
         self.last_gps_quality = None
         self.gps_converter = None
-        self.start_heading = None
-        self.start_q_heading = None
         self.heading = None
 
         # verbose
@@ -62,19 +59,17 @@ class Invasive(Node):
     def on_bumpers(self, data):
         pass
 
+    def on_pose2d(self, pose2d):
+        if pose2d:
+            x, y, __ = pose2d
+            self.last_pose = [x/1000, y/1000]  # mm to m
+
+
     def on_pose3d(self, data):
         if data:
             [x, y, z], quat = data
-            self.last_pose = [x, y]
-            if self.start_heading is not None:
-                if self.start_q_heading is None:
-                    self.start_q_heading = quaternion.heading(quat)
-                    self.heading = self.start_heading
-                else:
-                    q_heading = quaternion.heading(quat)
-                    self.heading = normalizeAnglePIPI(self.start_heading + (q_heading - self.start_q_heading))   # diff q_heading - initial gps_heading
-                    if self.verbose:
-                        pass
+            self.heading = quaternion.heading(quat)
+
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -96,7 +91,7 @@ class Invasive(Node):
             self.update()
 
     def check_pose(self):
-        """Check if pose (pose3d) is available."""
+        """Check if pose (pose) is available."""
         return self.last_pose is not None
 
     def check_gps(self):
@@ -149,7 +144,7 @@ class Invasive(Node):
         print(self.time, 'Go straight')
         start_pose = self.last_pose
         while True:
-            if self.update() == 'pose3d':
+            if self.update() == 'pose2d':
                 self.ensure_sensors()
                 if math.hypot(start_pose[0] - self.last_pose[0],
                               start_pose[1] - self.last_pose[1]) < dist:
@@ -170,7 +165,7 @@ class Invasive(Node):
                     if self.verbose:
                         print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
                               f"heading: {self.heading}, heading_diff: {heading_diff}")
-                    self.send_speed_cmd(self.max_speed, heading_diff)
+                    self.send_speed_cmd(self.max_speed, heading_diff*0.5)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
@@ -182,11 +177,8 @@ class Invasive(Node):
             self.gps_converter = GPSConvertor((self.last_geo_pose[0], self.last_geo_pose[1]))  # define initial geo pose
             if self.verbose:
                 self.debug_geo_poses_xy.append(([0, 0], None))
-            self.start_geo_pose = self.last_geo_pose
 
-            self.go_straight(self.straight_dist)
-            self.start_heading = self.get_geo_angle(self.start_geo_pose, self.last_geo_pose)
-
+            self.go_straight(self.straight_dist)  # get true heading
             for waypoint in self.waypoints:
                 if self.verbose:
                     self.debug_waypoints_xy.append(self.gps_converter.geo2planar(waypoint))

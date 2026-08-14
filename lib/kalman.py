@@ -1,6 +1,9 @@
 import math
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 from numpy.linalg import inv
 
 class KalmanFilterLocalization:

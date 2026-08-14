@@ -5,7 +5,7 @@
 
       "app": {
           "driver": "invasive_control.invasive:Invasive",
-          "in": ["pose3d", "nmea_data"],
+          "in": ["pose3d", "nmea_data", "pose2d"],
           "out": ["desired_steering"],
           "init": {
             "waypoints_file": "invasive_control/data/path_czu_3.json",
@@ -21,6 +21,23 @@
 	      "in": ["orientation", "odom"],
 	      "out": ["pose3d"],
 	      "init":{}
+      },
+
+      "lsqr": {
+	      "driver": "localization:Localization",
+	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
+	      "out": ["pose3d"],
+	      "init":{
+            "algorithm": "lsqr",
+            "enc scale": 0.00218,
+            "window": 2,
+            "prune": 1,
+            "post window": null,
+            "initial angle": 0,
+            "initial scale":  1.0,
+            "initial window": 2.0,
+            "initial dumb distance": 0.01
+          }
       },
 
       "reset": {
@@ -129,13 +146,18 @@
     },
     "links": [
               ["app.desired_steering", "transmitter.desired_steering"],
-              ["localization.pose3d", "app.pose3d"],
+              ["receiver.pose2d", "app.pose2d"],
               ["rtk_gps.nmea_data", "app.nmea_data"],
+              ["lsqr.pose3d", "app.pose3d"],
 
               ["reset.reset", "transmitter.reset"],
 
               ["receiver.pose2d", "localization.odom"],
               ["imu.orientation", "localization.orientation"],
+
+              ["receiver.encoders", "lsqr.encoders"],
+              ["imu.orientation", "lsqr.orientation"],
+              ["rtk_gps.nmea_data", "lsqr.nmea"],
 
               ["imu_tcp.raw", "imu.raw"],
 
