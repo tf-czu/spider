@@ -37,7 +37,14 @@
         "driver": "robot.scan3d2scan:Scan3DToScan2D",
         "in": ["scan3d"],
         "out": ["scan2d"],
-        "init": {}
+        "init": {
+          "lidar_height": 1.3,
+          "slope": 15,
+          "lidar_range": 15,
+          "obstacle_size" : 0.4,
+          "blind_zone": 0.8,
+          "flip_scan": true
+        }
 },
 
       "reset": {
