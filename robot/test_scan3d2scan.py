@@ -62,6 +62,27 @@ class TestScan3DToScan2D(unittest.TestCase):
         result = self._get_result(tester)
         self.assertTrue(all(v == 0.0 for v in result))
 
+    def test_cos_projection_slant_distance(self):
+        app, tester = make_app()
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        # bottom ray 15 (row 31, phi=22.5 deg) -> 1500 mm (valid: max_range ~1587 mm)
+        data[31, :] = 1500
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        # projected distance = 1500 * cos(22.5 deg)
+        expected = 1500 * np.cos(np.radians(22.5))
+        self.assertTrue(all(abs(v - expected) < 0.01 for v in result))
+
+    def test_clip_above_L(self):
+        # small L and flat terrain so that the projected value exceeds L
+        app, tester = make_app(config={'slope': 0, 'L': 2.0})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        # row 17 (phi=1.5 deg), distance 3000 mm -> projection ~2999.7 mm > L=2000 mm
+        data[17, :] = 3000
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertTrue(all(v == 0.0 for v in result))
+
     def test_wrong_shape_raises(self):
         app, tester = make_app()
         data = np.zeros((16, 1024), dtype=np.float64)
