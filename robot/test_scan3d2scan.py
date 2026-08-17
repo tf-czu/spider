@@ -73,11 +73,11 @@ class TestScan3DToScan2D(unittest.TestCase):
         expected = 1500 * np.cos(np.radians(22.5))
         self.assertTrue(all(abs(v - expected) < 0.01 for v in result))
 
-    def test_clip_above_L(self):
-        # small L and flat terrain so that the projected value exceeds L
-        app, tester = make_app(config={'slope': 0, 'L': 2.0})
+    def test_clip_above_lidar_range(self):
+        # small lidar_range so that the projected value exceeds it
+        app, tester = make_app(config={'slope': 5, 'lidar_range': 2.0})
         data = np.full((32, 1024), 0.0, dtype=np.float64)
-        # row 17 (phi=1.5 deg), distance 3000 mm -> projection ~2999.7 mm > L=2000 mm
+        # row 17 (phi=1.5 deg), distance 3000 mm -> projection ~2999.7 mm > lidar_range=2000 mm
         data[17, :] = 3000
         app.on_scan3d(data)
         result = self._get_result(tester)
