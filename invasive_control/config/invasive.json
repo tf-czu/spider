@@ -1,0 +1,172 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+
+      "app": {
+          "driver": "invasive_control.invasive:Invasive",
+          "in": ["pose3d", "nmea_data", "pose2d"],
+          "out": ["desired_steering"],
+          "init": {
+            "waypoints_file": "invasive_control/data/path_czu_3.json",
+            "required_quality": 4,
+            "straight_dist": 5,
+            "sensor_wait_timeout": 10,
+            "gps_recovery_timeout": 30
+          }
+      },
+
+      "localization": {
+	      "driver": "osgar.drivers.odoimuloc:Localization",
+	      "in": ["orientation", "odom"],
+	      "out": ["pose3d"],
+	      "init":{}
+      },
+
+      "lsqr": {
+	      "driver": "localization:Localization",
+	      "in": ["nmea_data", "orientation", "encoders", "pose2d"],
+	      "out": ["pose3d"],
+	      "init":{
+            "algorithm": "lsqr",
+            "enc scale": 0.00218,
+            "window": 2,
+            "prune": 1,
+            "post window": null,
+            "initial angle": 0,
+            "initial scale":  1.0,
+            "initial window": 2.0,
+            "initial dumb distance": 0.01
+          }
+      },
+
+      "reset": {
+        "driver": "robot.spider_reset:Reset",
+        "init": {}
+      },
+
+       "transmitter": {
+        "driver": "osgar.drivers.push:Push",
+          "init": {
+            "pubsub": true,
+            "endpoint": "tcp://127.0.0.1:5556"
+          }
+      },
+
+      "receiver": {
+        "driver": "osgar.drivers.pull:Pull",
+        "init": {
+          "pubsub": true,
+          "endpoint": "tcp://127.0.0.1:5555",
+          "outputs": [
+            "status", "encoders", "pose2d", "bumpers"
+          ]
+        }
+      },
+
+      "lidar": {
+          "driver": "osgar.drivers.ouster_lidar:OusterLidar",
+          "init": {
+            "lidar_ip": "192.168.1.91",
+            "lidar_mode": "MODE_1024x10",
+            "azimuth_window": null
+          }
+      },
+
+      "imu": {
+          "driver": "imu",
+          "in": ["raw"],
+          "out": ["orientation", "rotation", "data"],
+          "init": {}
+      },
+      "imu_tcp": {
+          "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.12",
+              "port": 10002,
+              "bufsize": 2000
+          }
+      },
+
+      "gps_tcp": {
+          "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.12",
+              "port": 10001,
+              "bufsize": 2000
+          }
+      },
+      "gps": {
+        "driver": "gps",
+        "init": {}
+      },
+      "rtk_filter": {
+        "driver": "rtk_filter",
+          "in": ["nmea"],
+          "out": ["filtered"],
+          "init": {
+        }
+      },
+      "rtk_modem": {
+        "driver": "tcp",
+          "in": ["raw"],
+          "out": ["raw"],
+          "init": {
+              "host": "192.168.1.13",
+              "port": 10001,
+              "bufsize": 2000
+        }
+      },
+
+       "camera_front": {
+          "driver": "osgar.drivers.oak_camera:OakCamera",
+          "init": {
+            "fps": 10,
+            "is_color": true,
+            "cam_id": "192.168.1.62",
+            "color_resolution": "THE_800_P"
+          }
+      },
+
+      "rtk_gps": {
+        "driver": "gps",
+        "init": {}
+      },
+      "rtk_gps_serial": {
+        "driver": "serial",
+        "in": ["raw"],
+        "out": ["raw"],
+        "init": {"port": "/dev/ttyACM1", "speed": 115200}
+      }
+
+    },
+    "links": [
+              ["app.desired_steering", "transmitter.desired_steering"],
+              ["receiver.pose2d", "app.pose2d"],
+              ["rtk_gps.nmea_data", "app.nmea_data"],
+              ["lsqr.pose3d", "app.pose3d"],
+
+              ["reset.reset", "transmitter.reset"],
+
+              ["receiver.pose2d", "localization.odom"],
+              ["imu.orientation", "localization.orientation"],
+
+              ["receiver.encoders", "lsqr.encoders"],
+              ["imu.orientation", "lsqr.orientation"],
+              ["rtk_gps.nmea_data", "lsqr.nmea"],
+
+              ["imu_tcp.raw", "imu.raw"],
+
+              ["gps_tcp.raw", "gps.raw"],
+              ["gps_tcp.raw", "rtk_filter.nmea"],
+              ["rtk_filter.filtered", "rtk_modem.raw"],
+              ["rtk_modem.raw", "gps_tcp.raw"],
+
+              ["rtk_gps_serial.raw", "rtk_gps.raw"]
+    ]
+  }
+}

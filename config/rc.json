@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "rc": {
+        "driver": "rc_client:RcClient",
+        "init": {}
+      },
+      "to_spider": {
+          "driver": "osgar.drivers.push:Push",
+          "init": {
+            "pubsub": true,
+            "endpoint": "tcp://10.1.10.17:5557"
+          }
+      }
+      },
+    "links": [["rc.desired_steering", "to_spider.desired_steering"]]
+  }
+}
