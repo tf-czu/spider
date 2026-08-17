@@ -1,0 +1,73 @@
+import unittest
+from unittest.mock import MagicMock
+
+import numpy as np
+
+from osgar.bus import Bus
+
+from robot.scan3d2scan import Scan3DToScan2D
+
+
+def make_app(config=None):
+    """Create a Scan3DToScan2D instance with a mock bus."""
+    bus = Bus(MagicMock())
+    app = Scan3DToScan2D(config=config or {}, bus=bus.handle('app'))
+    tester = bus.handle('tester')
+    bus.connect('app.scan2d', 'tester.scan2d')
+    return app, tester
+
+
+class TestScan3DToScan2D(unittest.TestCase):
+    def _get_result(self, tester):
+        """Read the published scan2d result from the tester queue."""
+        timestamp, channel, data = tester.queue.get_nowait()
+        self.assertEqual(channel, 'scan2d')
+        return data
+
+    def test_output_length(self):
+        app, tester = make_app()
+        data = np.full((32, 1024), 2000, dtype=np.float64)
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(len(result), 1024)
+
+    def test_uses_bottom_rays(self):
+        app, tester = make_app()
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        # top rows (0-15) have valid distances but should be ignored
+        data[0:16, :] = 2000
+        # bottom rows (16-31) have 0 -> invalid (below min_dist)
+        data[16:32, :] = 0
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        # all columns should be 0.0 because bottom rays are invalid
+        self.assertTrue(all(v == 0.0 for v in result))
+
+    def test_minimum_per_column(self):
+        app, tester = make_app()
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        # bottom ray 0 (row 16) -> 2000 mm, bottom ray 1 (row 17) -> 5000 mm
+        data[16, :] = 2000
+        data[17, :] = 5000
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        # minimum valid distance per column should be 2000
+        self.assertTrue(all(v == 2000.0 for v in result))
+
+    def test_zero_when_no_valid(self):
+        app, tester = make_app()
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        # all bottom rays are 0 -> below min_dist -> no valid
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertTrue(all(v == 0.0 for v in result))
+
+    def test_wrong_shape_raises(self):
+        app, tester = make_app()
+        data = np.zeros((16, 1024), dtype=np.float64)
+        with self.assertRaises(AssertionError):
+            app.on_scan3d(data)
+
+
+if __name__ == '__main__':
+    unittest.main()
