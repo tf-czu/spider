@@ -15,7 +15,7 @@ from osgar.node import Node
 class Scan3DToScan2D(Node):
     def __init__(self, config, bus):
         super().__init__(config, bus)
-        bus.register('scan2d')
+        bus.register('scan')
 
         # Convert input values to mm.
         self.lidar_height = config.get('lidar_height', 1.3)*1000    # lidar height above ground (m)
@@ -62,5 +62,5 @@ class Scan3DToScan2D(Node):
         if self.flip_scan:
             result = result[::-1]
 
-        self.publish('scan2d', result.tolist())
+        self.publish('scan', result.tolist())
 

@@ -36,7 +36,7 @@
       "scan": {
         "driver": "robot.scan3d2scan:Scan3DToScan2D",
         "in": ["scan3d"],
-        "out": ["scan2d"],
+        "out": ["scan"],
         "init": {
           "lidar_height": 1.3,
           "slope": 15,
@@ -124,6 +124,7 @@
               ["receiver.pose2d", "app.pose2d"],
               ["rtk_gps.nmea_data", "app.nmea_data"],
               ["lsqr.pose3d", "app.pose3d"],
+              ["scan.scan", "app.scan"],
 
               ["lidar.scan3d", "scan.scan3d"],
 

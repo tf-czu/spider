@@ -34,6 +34,7 @@ class Invasive(Node):
         self.last_gps_quality = None
         self.gps_converter = None
         self.heading = None
+        self.last_scan = None
 
         # verbose
         self.debug_geo_poses_xy = []  # including heading
@@ -70,6 +71,8 @@ class Invasive(Node):
             [x, y, z], quat = data
             self.heading = quaternion.heading(quat)
 
+    def on_scan(self, scan):
+        self.last_scan = scan
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data

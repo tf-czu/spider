@@ -14,15 +14,15 @@ def make_app(config=None):
     bus = Bus(MagicMock())
     app = Scan3DToScan2D(config=config or {}, bus=bus.handle('app'))
     tester = bus.handle('tester')
-    bus.connect('app.scan2d', 'tester.scan2d')
+    bus.connect('app.scan', 'tester.scan')
     return app, tester
 
 
 class TestScan3DToScan2D(unittest.TestCase):
     def _get_result(self, tester):
-        """Read the published scan2d result from the tester queue."""
+        """Read the published scan result from the tester queue."""
         timestamp, channel, data = tester.queue.get_nowait()
-        self.assertEqual(channel, 'scan2d')
+        self.assertEqual(channel, 'scan')
         return data
 
     def test_output_length(self):
