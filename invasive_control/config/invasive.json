@@ -33,6 +33,13 @@
           }
       },
 
+      "scan": {
+        "driver": "robot.scan3d2scan:Scan3DToScan2D",
+        "in": ["scan3d"],
+        "out": ["scan2d"],
+        "init": {}
+},
+
       "reset": {
         "driver": "robot.spider_reset:Reset",
         "init": {}
@@ -110,6 +117,8 @@
               ["receiver.pose2d", "app.pose2d"],
               ["rtk_gps.nmea_data", "app.nmea_data"],
               ["lsqr.pose3d", "app.pose3d"],
+
+              ["lidar.scan3d", "scan.scan3d"],
 
               ["reset.reset", "transmitter.reset"],
 
