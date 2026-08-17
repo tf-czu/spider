@@ -85,6 +85,82 @@ class TestOnPose2d(unittest.TestCase):
         self.assertIsNone(app.last_pose)
 
 
+class TestGetMinObstacleDistance(unittest.TestCase):
+    def _make_scan(self, distance_front, distance_side=0.0):
+        """Create a 1024-ray scan with obstacle in front (index 512) and sides."""
+        scan = [0.0] * 1024
+        scan[512] = distance_front
+        scan[0] = distance_side
+        scan[1023] = distance_side
+        return scan
+
+    def test_no_scan_returns_none(self):
+        app = make_app()
+        app.last_scan = None
+        self.assertIsNone(app.get_min_obstacle_distance())
+
+    def test_front_obstacle(self):
+        app = make_app()
+        app.last_scan = self._make_scan(1500)
+        self.assertEqual(app.get_min_obstacle_distance(), 1500)
+
+    def test_ignores_side_obstacles(self):
+        # obstacle on the side (index 0) should be outside FOV (120 deg)
+        app = make_app()
+        app.last_scan = self._make_scan(0.0, distance_side=500)
+        self.assertIsNone(app.get_min_obstacle_distance())
+
+    def test_ignores_zero(self):
+        # all zeros -> no obstacle
+        app = make_app()
+        app.last_scan = [0.0] * 1024
+        self.assertIsNone(app.get_min_obstacle_distance())
+
+    def test_minimum_in_fov(self):
+        # two obstacles in FOV: 1000 at front, smaller one nearby
+        scan = [0.0] * 1024
+        scan[512] = 2500
+        scan[600] = 1200
+        app = make_app()
+        app.last_scan = scan
+        self.assertEqual(app.get_min_obstacle_distance(), 1200)
+
+
+class TestGoSafely(unittest.TestCase):
+    def test_no_obstacle_sends_full_speed(self):
+        app = make_app()
+        app.last_scan = [0.0] * 1024  # no obstacle
+        app.bus = MagicMock()
+        app.go_safely(0.4, 0.0)
+        # speed=0.4 -> round(400) -> 400 mm/s
+        expected_speed = round(0.4 * 1000)
+        self.assertGreater(app.bus.publish.call_args[0][1][0], 0)
+
+    def test_obstacle_under_stop_dist(self):
+        app = make_app()
+        # obstacle at 1m (1000mm) -> should stop
+        scan = [0.0] * 1024
+        scan[512] = 1000
+        app.last_scan = scan
+        app.bus = MagicMock()
+        app.go_safely(0.4, 0.0)
+        published = app.bus.publish.call_args[0][1]
+        self.assertEqual(published[0], 0)
+
+    def test_obstacle_between_slow_and_stop(self):
+        app = make_app()
+        # obstacle at 2.5m (2500mm) -> should slow down
+        scan = [0.0] * 1024
+        scan[512] = 2500
+        app.last_scan = scan
+        app.bus = MagicMock()
+        app.go_safely(0.4, 0.0)
+        published = app.bus.publish.call_args[0][1]
+        # speed should be between 0 and max (400 mm/s)
+        self.assertGreater(published[0], 0)
+        self.assertLess(published[0], round(0.4 * 1000))
+
+
 class TestOnNmeaData(unittest.TestCase):
     def test_stores_position_and_quality(self):
         app = make_app()

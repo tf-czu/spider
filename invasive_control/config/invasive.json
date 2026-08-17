@@ -5,14 +5,17 @@
 
       "app": {
           "driver": "invasive_control.invasive:Invasive",
-          "in": ["pose3d", "nmea_data", "pose2d"],
+          "in": ["pose3d", "nmea_data", "pose2d", "scan"],
           "out": ["desired_steering"],
           "init": {
             "waypoints_file": "invasive_control/data/path_czu_3.json",
             "required_quality": 4,
             "straight_dist": 5,
             "sensor_wait_timeout": 10,
-            "gps_recovery_timeout": 30
+            "gps_recovery_timeout": 30,
+            "fov_angle": 120,
+            "stop_dist": 2.0,
+            "slow_dist": 3.0
           }
       },
 

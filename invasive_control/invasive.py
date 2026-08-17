@@ -29,6 +29,9 @@ class Invasive(Node):
         self.straight_dist = config.get('straight_dist', 5)
         self.sensor_wait_timeout = config.get('sensor_wait_timeout', 10)
         self.gps_recovery_timeout = config.get('gps_recovery_timeout', 30)
+        self.fov_angle = config.get('fov_angle', 120)          # field of view (deg)
+        self.stop_dist = config.get('stop_dist', 2.0) * 1000   # stop distance (m -> mm)
+        self.slow_dist = config.get('slow_dist', 3.0) * 1000   # slow down distance (m -> mm)
         self.last_pose = None
         self.last_geo_pose = None
         self.last_gps_quality = None
@@ -55,6 +58,38 @@ class Invasive(Node):
             'desired_steering',
             [round(speed * 1000), round(math.degrees(steering_angle) * 100)]
         )
+
+    def get_min_obstacle_distance(self):
+        """Return the minimum obstacle distance in front of the robot (mm).
+
+        The scan has 1024 rays covering 360 degrees; the front is at index 512.
+        Only rays within the configured field of view (fov_angle) are considered.
+        Returns None if no obstacle is detected.
+        """
+        if self.last_scan is None:
+            return None
+        num_rays = len(self.last_scan)
+        # number of rays within the field of view
+        fov_rays = int(num_rays * self.fov_angle / 360.0)
+        half = fov_rays // 2
+        center = num_rays // 2
+        front = self.last_scan[center - half:center + half]
+        # ignore 0.0 (no measurement)
+        valid = [d for d in front if d > 0.0]
+        if not valid:
+            return None
+        return min(valid)
+
+    def go_safely(self, speed, steering_angle):
+        """Send speed command, reduced based on obstacle distance in front."""
+        min_dist = self.get_min_obstacle_distance()
+        if min_dist is not None:
+            if min_dist < self.stop_dist:
+                speed = 0.0
+            elif min_dist < self.slow_dist:
+                # linear slowdown between stop_dist and slow_dist
+                speed *= (min_dist - self.stop_dist) / (self.slow_dist - self.stop_dist)
+        self.send_speed_cmd(speed, steering_angle)
 
 
     def on_bumpers(self, data):
@@ -151,7 +186,7 @@ class Invasive(Node):
                 self.ensure_sensors()
                 if math.hypot(start_pose[0] - self.last_pose[0],
                               start_pose[1] - self.last_pose[1]) < dist:
-                    self.send_speed_cmd(self.max_speed, 0)
+                    self.go_safely(self.max_speed, 0)
                 else:
                     self.send_speed_cmd(0, 0)
                     break
@@ -168,7 +203,7 @@ class Invasive(Node):
                     if self.verbose:
                         print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
                               f"heading: {self.heading}, heading_diff: {heading_diff}")
-                    self.send_speed_cmd(self.max_speed, heading_diff*0.5)
+                    self.go_safely(self.max_speed, heading_diff*0.5)
         print(f"Waypoint {waypoint} reached.")
 
     def run(self):
