@@ -31,7 +31,12 @@ class Scan3DToScan2D(Node):
         self.phi = np.radians(np.linspace(0.0, self.max_angle, self.num_rays))
 
         # max valid distance per ray
-        self.max_range = (self.lidar_height - self.obstacle_size) / (np.cos(self.phi) * (np.tan(self.slope) + np.tan(self.phi)))
+        # when denominator is 0 (e.g. slope=0 and phi=0), the ray is parallel
+        # to the ground and never reaches it -> max_range = inf
+        denominator = np.cos(self.phi) * (np.tan(self.slope) + np.tan(self.phi))
+        self.max_range = np.full_like(denominator, np.inf)
+        nonzero = ~np.isclose(denominator, 0.0)
+        self.max_range[nonzero] = (self.lidar_height - self.obstacle_size) / denominator[nonzero]
 
     def on_scan3d(self, data):
         assert data.shape == (32, 1024), data.shape

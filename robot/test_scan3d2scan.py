@@ -1,3 +1,4 @@
+import warnings
 import unittest
 from unittest.mock import MagicMock
 
@@ -82,6 +83,17 @@ class TestScan3DToScan2D(unittest.TestCase):
         app.on_scan3d(data)
         result = self._get_result(tester)
         self.assertTrue(all(v == 0.0 for v in result))
+
+    def test_slope_zero_no_warning(self):
+        # slope=0, phi=0 -> denominator=0 -> max_range should be inf, no warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)  # osgar Node setDaemon
+            warnings.simplefilter("error", RuntimeWarning)       # catch divide-by-zero
+            app, tester = make_app(config={'slope': 0})
+        # first ray (phi=0) should have max_range = inf
+        self.assertTrue(np.isinf(app.max_range[0]))
+        # other rays should have finite max_range
+        self.assertTrue(np.all(np.isfinite(app.max_range[1:])))
 
     def test_wrong_shape_raises(self):
         app, tester = make_app()
