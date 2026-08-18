@@ -109,7 +109,8 @@
             "fps": 10,
             "is_color": true,
             "cam_id": "192.168.1.62",
-            "color_resolution": "THE_800_P"
+            "color_resolution": "THE_800_P",
+            "color_orientation": "ROTATE_180_DEG"
           }
       },
 
