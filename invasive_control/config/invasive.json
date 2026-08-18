@@ -13,8 +13,8 @@
             "straight_dist": 5,
             "sensor_wait_timeout": 10,
             "gps_recovery_timeout": 30,
-            "fov_angle": 120,
-            "stop_dist": 2.0,
+            "fov_angle": 100,
+            "stop_dist": 1.6,
             "slow_dist": 3.0
           }
       },
