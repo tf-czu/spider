@@ -9,7 +9,7 @@ from datetime import timedelta
 import numpy as np
 
 from osgar.node import Node
-from osgar.lib.mathex import normalizeAnglePIPI
+from osgar.lib.local_planner import LocalPlanner
 from osgar.bus import BusShutdownException
 from osgar.lib.route import Convertor as GPSConvertor
 from osgar.lib import quaternion
@@ -32,6 +32,14 @@ class Invasive(Node):
         self.fov_angle = config.get('fov_angle', 120)          # field of view (deg)
         self.stop_dist = config.get('stop_dist', 2.0) * 1000   # stop distance (m -> mm)
         self.slow_dist = config.get('slow_dist', 3.0) * 1000   # slow down distance (m -> mm)
+        self.planner = LocalPlanner(
+            scan_start=math.radians(-180),
+            scan_end=math.radians(180),
+            direction_adherence=config.get('direction_adherence', math.radians(90)),
+            max_obstacle_distance=config.get('max_obstacle_distance', 4.0),
+            obstacle_influence=config.get('obstacle_influence', 2.0),
+        )
+        self.waypoint_index = 0
         self.last_pose = None
         self.last_geo_pose = None
         self.last_gps_quality = None
@@ -108,6 +116,7 @@ class Invasive(Node):
 
     def on_scan(self, scan):
         self.last_scan = scan
+        self.planner.update(scan)
 
     def on_nmea_data(self, data):
         assert 'lat' in data, data
@@ -191,20 +200,44 @@ class Invasive(Node):
                     self.send_speed_cmd(0, 0)
                     break
 
-    def navigate_to_waypoints(self, waypoint):
-        print(f"Navigate to wp ({waypoint}), distance: {self.dist2destination(waypoint)}")
-        while self.dist2destination(waypoint) > 1.0:
-            if self.verbose:
-                print("Dist: ", self.dist2destination(waypoint))
+    def select_target_waypoint(self):
+        """Select the closest waypoint from the window of the next 5 waypoints.
+
+        During obstacle avoidance the robot may be closer to a later waypoint,
+        so we steer towards the closest one within the lookahead window.
+        """
+        window = self.waypoints[self.waypoint_index:self.waypoint_index + 5]
+        best_relative = min(
+            range(len(window)),
+            key=lambda i: self.dist2destination(window[i])
+        )
+        return self.waypoint_index + best_relative, window[best_relative]
+
+    def navigate_to_waypoints(self):
+        """Navigate towards the last waypoint, skipping intermediate waypoints
+        only if the robot gets naturally closer to a later one while avoiding obstacles.
+        """
+        if not self.waypoints:
+            return
+        print(f"Navigate to last wp ({self.waypoints[-1]}), distance: {self.dist2destination(self.waypoints[-1])}")
+        print(f"First target wp: {self.waypoints[0]}, distance: {self.dist2destination(self.waypoints[0])}")
+        while self.dist2destination(self.waypoints[-1]) > 1.0:
             if self.update() == 'pose3d':
                 self.ensure_sensors()
-                if self.heading is not None:
-                    heading_diff = normalizeAnglePIPI(self.get_geo_angle(self.last_geo_pose, waypoint) - self.heading)  # radians
-                    if self.verbose:
-                        print(f"Direction to wp: {self.get_geo_angle(self.last_geo_pose, waypoint)}, "
-                              f"heading: {self.heading}, heading_diff: {heading_diff}")
-                    self.go_safely(self.max_speed, heading_diff*0.5)
-        print(f"Waypoint {waypoint} reached.")
+                idx, target = self.select_target_waypoint()
+                if self.dist2destination(target) < 1.0:
+                    print(f"Reached wp ({self.waypoints[self.waypoint_index]})")
+                    print(f"Next wp: {self.waypoints[self.waypoint_index + 1]}, "
+                          f"distance: {self.dist2destination(self.waypoints[self.waypoint_index + 1])}")
+                    self.waypoint_index = idx + 1  # reached -> advance
+                    continue
+                desired_dir = self.get_geo_angle(self.last_geo_pose, target)
+                goodness, direction = self.planner.recommend(desired_dir)
+                if self.verbose:
+                    print(f"Target wp ({target}), desired: {desired_dir}, "
+                          f"planner dir: {direction}, goodness: {goodness}")
+                self.go_safely(self.max_speed, direction)
+        print(f"Last waypoint reached.")
 
     def run(self):
         try:
@@ -217,10 +250,10 @@ class Invasive(Node):
                 self.debug_geo_poses_xy.append(([0, 0], None))
 
             self.go_straight(self.straight_dist)  # get true heading
-            for waypoint in self.waypoints:
-                if self.verbose:
+            if self.verbose:
+                for waypoint in self.waypoints:
                     self.debug_waypoints_xy.append(self.gps_converter.geo2planar(waypoint))
-                self.navigate_to_waypoints(waypoint)
+            self.navigate_to_waypoints()
         except BusShutdownException:
             pass
         self.send_speed_cmd(0, 0)
