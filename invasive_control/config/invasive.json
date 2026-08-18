@@ -5,22 +5,18 @@
 
       "app": {
           "driver": "invasive_control.invasive:Invasive",
-          "in": ["pose3d", "nmea_data", "pose2d"],
+          "in": ["pose3d", "nmea_data", "pose2d", "scan"],
           "out": ["desired_steering"],
           "init": {
             "waypoints_file": "invasive_control/data/path_czu_3.json",
             "required_quality": 4,
             "straight_dist": 5,
             "sensor_wait_timeout": 10,
-            "gps_recovery_timeout": 30
+            "gps_recovery_timeout": 30,
+            "fov_angle": 100,
+            "stop_dist": 1.6,
+            "slow_dist": 3.0
           }
-      },
-
-      "localization": {
-	      "driver": "osgar.drivers.odoimuloc:Localization",
-	      "in": ["orientation", "odom"],
-	      "out": ["pose3d"],
-	      "init":{}
       },
 
       "lsqr": {
@@ -39,6 +35,20 @@
             "initial dumb distance": 0.01
           }
       },
+
+      "scan": {
+        "driver": "robot.scan3d2scan:Scan3DToScan2D",
+        "in": ["scan3d"],
+        "out": ["scan"],
+        "init": {
+          "lidar_height": 1.3,
+          "slope": 15,
+          "lidar_range": 15,
+          "obstacle_size" : 0.4,
+          "blind_zone": 0.8,
+          "flip_scan": true
+        }
+},
 
       "reset": {
         "driver": "robot.spider_reset:Reset",
@@ -90,38 +100,6 @@
           }
       },
 
-      "gps_tcp": {
-          "driver": "tcp",
-          "in": ["raw"],
-          "out": ["raw"],
-          "init": {
-              "host": "192.168.1.12",
-              "port": 10001,
-              "bufsize": 2000
-          }
-      },
-      "gps": {
-        "driver": "gps",
-        "init": {}
-      },
-      "rtk_filter": {
-        "driver": "rtk_filter",
-          "in": ["nmea"],
-          "out": ["filtered"],
-          "init": {
-        }
-      },
-      "rtk_modem": {
-        "driver": "tcp",
-          "in": ["raw"],
-          "out": ["raw"],
-          "init": {
-              "host": "192.168.1.13",
-              "port": 10001,
-              "bufsize": 2000
-        }
-      },
-
        "camera_front": {
           "driver": "osgar.drivers.oak_camera:OakCamera",
           "init": {
@@ -149,23 +127,17 @@
               ["receiver.pose2d", "app.pose2d"],
               ["rtk_gps.nmea_data", "app.nmea_data"],
               ["lsqr.pose3d", "app.pose3d"],
+              ["scan.scan", "app.scan"],
+
+              ["lidar.scan3d", "scan.scan3d"],
 
               ["reset.reset", "transmitter.reset"],
-
-              ["receiver.pose2d", "localization.odom"],
-              ["imu.orientation", "localization.orientation"],
 
               ["receiver.encoders", "lsqr.encoders"],
               ["imu.orientation", "lsqr.orientation"],
               ["rtk_gps.nmea_data", "lsqr.nmea"],
 
               ["imu_tcp.raw", "imu.raw"],
-
-              ["gps_tcp.raw", "gps.raw"],
-              ["gps_tcp.raw", "rtk_filter.nmea"],
-              ["rtk_filter.filtered", "rtk_modem.raw"],
-              ["rtk_modem.raw", "gps_tcp.raw"],
-
               ["rtk_gps_serial.raw", "rtk_gps.raw"]
     ]
   }
