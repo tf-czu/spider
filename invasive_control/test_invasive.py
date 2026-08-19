@@ -161,6 +161,52 @@ class TestGoSafely(unittest.TestCase):
         self.assertLess(published[0], round(0.4 * 1000))
 
 
+class TestSelectTargetWaypoint(unittest.TestCase):
+    def _setup_app(self, waypoints, pos=(14.0, 50.0)):
+        """Create app with waypoints and GPS converter at given position."""
+        app = make_app({'waypoints': waypoints})
+        app.last_geo_pose = [pos[0], pos[1]]
+        app.gps_converter = GPSConvertor(pos)
+        return app
+
+    def test_select_closest_from_window(self):
+        app = self._setup_app([
+            [14.0, 50.0],      # distance 0 -> closest
+            [14.001, 50.001],
+            [14.002, 50.002],
+        ])
+        idx, wp = app.select_target_waypoint()
+        self.assertEqual(idx, 0)
+        self.assertEqual(wp, [14.0, 50.0])
+
+    def test_select_considers_only_window(self):
+        # robot at origin; waypoint 0 far, later waypoints closer but outside window
+        app = self._setup_app([
+            [14.0, 50.0],      # closest (0)
+            [14.001, 50.001],
+            [14.002, 50.002],
+            [14.003, 50.003],
+            [14.004, 50.004],
+            [14.005, 50.005],  # 6th - outside window
+            [14.006, 50.006],
+        ], pos=(14.0, 50.0))
+        app.waypoint_index = 0
+        # window is [0:5], all 5 are further than index 0
+        idx, wp = app.select_target_waypoint()
+        self.assertEqual(idx, 0)
+
+    def test_advances_index_when_reached(self):
+        app = self._setup_app([
+            [14.0, 50.0],
+            [14.001, 50.001],
+            [14.002, 50.002],
+        ])
+        # robot is at waypoint 0 -> should be marked as reached, advance to 1
+        app.waypoint_index = 0
+        idx, wp = app.select_target_waypoint()
+        self.assertEqual(idx, 0)
+
+
 class TestOnNmeaData(unittest.TestCase):
     def test_stores_position_and_quality(self):
         app = make_app()
