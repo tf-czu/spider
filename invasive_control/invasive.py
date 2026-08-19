@@ -231,7 +231,7 @@ class Invasive(Node):
                           f"distance: {self.dist2destination(self.waypoints[self.waypoint_index + 1])}")
                     self.waypoint_index = idx + 1  # reached -> advance
                     continue
-                desired_dir = self.get_geo_angle(self.last_geo_pose, target)
+                desired_dir = self.get_geo_angle(self.last_geo_pose, target) - self.heading
                 goodness, direction = self.planner.recommend(desired_dir)
                 if self.verbose:
                     print(f"Target wp ({target}), desired: {desired_dir}, "
