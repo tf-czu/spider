@@ -95,6 +95,79 @@ class TestScan3DToScan2D(unittest.TestCase):
         # other rays should have finite max_range
         self.assertTrue(np.all(np.isfinite(app.max_range[1:])))
 
+    def test_flip_scan_single(self):
+        # flip_scan=True, cluster_size=1 -> scan flipped exactly once
+        app, tester = make_app(config={'flip_scan': True})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, 512] = 2000  # obstacle at front (index 512)
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        # after flip, obstacle should be at index 1024-1-512 = 511
+        self.assertEqual(result[511], 2000.0)
+        self.assertEqual(result[512], 0.0)
+
+    def test_flip_scan_cluster(self):
+        # flip_scan=True, cluster_size=2 -> scan flipped exactly once
+        app, tester = make_app(config={'flip_scan': True, 'cluster_size': 2})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, 512] = 2000  # obstacle at front (index 512)
+        data[16, 513] = 2000  # same block (512,513) -> valid cluster
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        # cluster_size=2 -> output length 512; obstacle at 512 -> block 256
+        # after flip -> index 512-1-256 = 255
+        self.assertEqual(len(result), 512)
+        self.assertEqual(result[255], 2000.0)
+
+    def test_cluster_size_1_no_change(self):
+        # cluster_size=1 -> output unchanged (length 1024)
+        app, tester = make_app(config={'cluster_size': 1})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, :] = 2000
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(len(result), 1024)
+        self.assertTrue(all(v == 2000.0 for v in result))
+
+    def test_cluster_size_2_downsample(self):
+        # cluster_size=2 -> output length 512
+        app, tester = make_app(config={'cluster_size': 2})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, :] = 2000
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(len(result), 512)
+
+    def test_cluster_keeps_valid_block(self):
+        # block with similar values -> kept (min)
+        app, tester = make_app(config={'cluster_size': 2})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, 0] = 2000
+        data[16, 1] = 2010  # diff 10 < 2% of 2010 = 40.2 -> valid
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(result[0], 2000.0)
+
+    def test_cluster_rejects_noisy_block(self):
+        # block with large difference -> 0.0
+        app, tester = make_app(config={'cluster_size': 2})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, 0] = 2000
+        data[16, 1] = 3000  # diff 1000 > 2% of 3000 = 60 -> invalid
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(result[0], 0.0)
+
+    def test_cluster_rejects_block_with_zero(self):
+        # block containing 0 -> 0.0
+        app, tester = make_app(config={'cluster_size': 2})
+        data = np.full((32, 1024), 0.0, dtype=np.float64)
+        data[16, 0] = 2000
+        data[16, 1] = 0  # zero -> invalid
+        app.on_scan3d(data)
+        result = self._get_result(tester)
+        self.assertEqual(result[0], 0.0)
+
     def test_wrong_shape_raises(self):
         app, tester = make_app()
         data = np.zeros((16, 1024), dtype=np.float64)
