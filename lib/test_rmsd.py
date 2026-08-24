@@ -4,7 +4,7 @@ import unittest
 import math
 from datetime import timedelta
 
-from rmsd import *
+from lib.rmsd import *
 
 class TestRootMeanSquareDeviationCounter(unittest.TestCase):
 
