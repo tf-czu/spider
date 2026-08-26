@@ -26,6 +26,9 @@ class Scan3DToScan2D(Node):
         self.num_rays = config.get('num_rays', 16)                  # number of bottom rays
         self.max_angle = config.get('max_angle', 22.5)              # max ray angle (deg)
         self.flip_scan = config.get('flip_scan', False)             # we require a positive direction of rotation
+        
+        self.cluster_size = config.get('cluster_size', 1)           # min consecutive points required (and downsampling factor)
+        self.distance_tolerance = config.get('distance_tolerance', 0.02) # max relative distance diff between neighbors (2%)
 
         # angles for the bottom rays: row 16 -> 0 deg, row 31 -> 22.5 deg
         self.phi = np.radians(np.linspace(0.0, self.max_angle, self.num_rays))
@@ -59,8 +62,37 @@ class Scan3DToScan2D(Node):
 
         # clip too far obstacles
         result[result > self.lidar_range] = 0.0
+
+        # Apply cluster / noise filter (high grass filter) and downsampling if cluster_size > 1
+        if self.cluster_size > 1:
+            k = self.cluster_size
+            n_cols = len(result)
+            # Ensure number of columns is divisible by k (crop if needed or reshape)
+            valid_len = (n_cols // k) * k
+            res_trimmed = result[:valid_len]
+
+            # Reshape into blocks of size k
+            blocks = res_trimmed.reshape(-1, k) # shape (N_blocks, k)
+
+            # A valid cluster requires all k points in the block to be > 0
+            all_positive = (blocks > 0.0).all(axis=1)
+
+            # Check differences between adjacent elements in each block
+            diffs = np.abs(blocks[:, 1:] - blocks[:, :-1])
+            max_vals = np.maximum(blocks[:, 1:], blocks[:, :-1])
+            allowed_diffs = max_vals * self.distance_tolerance
+            diffs_ok = (diffs <= allowed_diffs).all(axis=1)
+            cluster_ok = all_positive & diffs_ok
+
+            # Representative value per block (minimum valid distance in block)
+            block_rep = blocks.min(axis=1)
+            block_rep[~cluster_ok] = 0.0
+
+            result = block_rep
+
         if self.flip_scan:
             result = result[::-1]
 
         self.publish('scan', result.tolist())
+
 

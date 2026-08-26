@@ -35,7 +35,7 @@ class Invasive(Node):
         self.planner = LocalPlanner(
             scan_start=math.radians(-180),
             scan_end=math.radians(180),
-            direction_adherence=config.get('direction_adherence', math.radians(90)),
+            direction_adherence=math.radians(config.get('direction_adherence', 90)),
             max_obstacle_distance=config.get('max_obstacle_distance', 4.0),
             obstacle_influence=config.get('obstacle_influence', 2.0),
         )
