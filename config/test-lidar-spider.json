@@ -1,0 +1,20 @@
+{
+    "version": 2,
+    "robot": {
+        "modules": {
+            "mapper": {
+                "driver": "mapper:Mapper",
+                "in": ["komentar pro input"],
+                "out": ["komentar pro output"],
+                "init":{
+                    "parameter": "tady bude nastaveni parametru"
+                }
+            }
+        },
+        "links": [
+            ["lidar.metadata", "mapper.lidar_metadata"],
+            ["lidar.scan3d", "mapper.lidar_scan3d"],
+            ["lidar.reflectivity", "mapper.lidar_reflectivity"]
+        ]
+    }
+}

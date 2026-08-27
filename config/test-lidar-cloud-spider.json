@@ -1,0 +1,20 @@
+{
+    "version": 2,
+    "robot": {
+        "modules": {
+            "cloud_mapper": {
+                "driver": "cloud_mapper:CloudMapper",
+                "in": ["komentar pro input"],
+                "out": ["komentar pro output"],
+                "init":{
+                    "parameter": "tady bude nastaveni parametru"
+                }
+            }
+        },
+        "links": [
+            ["lidar.metadata", "cloud_mapper.lidar_metadata"],
+            ["lidar.scan3d", "cloud_mapper.lidar_scan3d"],
+            ["lidar.reflectivity", "cloud_mapper.lidar_reflectivity"]
+        ]
+    }
+}
