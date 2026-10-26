@@ -10,12 +10,14 @@ import math
 
 import numpy as np
 
+from osgar.lib.quaternion import heading
 from osgar.node import Node
 
 
-def quaternion_yaw(q):
-    x, y, z, w = q
-    return math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+def arrow_vector(heading, length):
+    """Heading arrow (dx, dy) in plot data coordinates: the horizontal axis is y (growing to the left,
+    the axis itself is reversed via imshow extent) and the vertical axis is x (growing up)."""
+    return length * math.sin(heading), length * math.cos(heading)
 
 
 class LocalMap(Node):
@@ -42,7 +44,7 @@ class LocalMap(Node):
 
     def on_pose3d(self, data):
         xyz, quat = data
-        self.pose = (xyz[0] * 1000, xyz[1] * 1000, quaternion_yaw(quat))  # pose3d is in meters, scan in mm
+        self.pose = (xyz[0] * 1000, xyz[1] * 1000, heading(quat))  # pose3d is in meters, scan in mm
 
     def scan_to_cells(self, scan, yaw):
         """Return a robot centered (world aligned) map: -1 unknown, 0 obstacle, 1 free."""
@@ -162,8 +164,8 @@ class LocalMap(Node):
                 break
             if arrow is not None:
                 arrow.remove()
-            # map x axis is up and y axis is to the left (the image is mirrored horizontally)
-            arrow = ax.arrow(0, 0, -length * math.sin(heading), length * math.cos(heading),
+            dx, dy = arrow_vector(heading, length)
+            arrow = ax.arrow(0, 0, dx, dy,
                              color='red', width=length / 12, head_width=length / 3, length_includes_head=True)
             image.set_data(grid[:, ::-1])
             ax.set_title(f"local map {index + 1}/{len(self.history)}")
