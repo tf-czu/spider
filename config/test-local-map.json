@@ -1,0 +1,165 @@
+{
+  "version": 2,
+  "robot": {
+    "modules": {
+      "lsqr": {
+        "driver": "localization:Localization",
+        "in": [
+          "nmea_data",
+          "orientation",
+          "encoders",
+          "pose2d"
+        ],
+        "out": [
+          "pose3d"
+        ],
+        "init": {
+          "algorithm": "lsqr",
+          "enc scale": 0.00218,
+          "window": 2,
+          "prune": 1,
+          "post window": null,
+          "initial angle": 0,
+          "initial scale": 1.0,
+          "initial window": 2.0,
+          "initial dumb distance": 0.01
+        }
+      },
+      "scan": {
+        "driver": "robot.scan3d2scan:Scan3DToScan2D",
+        "in": [
+          "scan3d"
+        ],
+        "out": [
+          "scan"
+        ],
+        "init": {
+          "lidar_height": 1.3,
+          "slope": 5,
+          "lidar_range": 15,
+          "obstacle_size": 0.6,
+          "blind_zone": 0.8,
+          "cluster_size": 2,
+          "flip_scan": true
+        }
+      },
+      "receiver": {
+        "driver": "osgar.drivers.pull:Pull",
+        "init": {
+          "pubsub": true,
+          "endpoint": "tcp://127.0.0.1:5555",
+          "outputs": [
+            "status",
+            "encoders",
+            "pose2d",
+            "bumpers"
+          ]
+        }
+      },
+      "lidar": {
+        "driver": "osgar.drivers.ouster_lidar:OusterLidar",
+        "init": {
+          "lidar_ip": "192.168.1.91",
+          "lidar_mode": "MODE_1024x10",
+          "azimuth_window": null
+        }
+      },
+      "imu": {
+        "driver": "imu",
+        "in": [
+          "raw"
+        ],
+        "out": [
+          "orientation",
+          "rotation",
+          "data"
+        ],
+        "init": {}
+      },
+      "imu_tcp": {
+        "driver": "tcp",
+        "in": [
+          "raw"
+        ],
+        "out": [
+          "raw"
+        ],
+        "init": {
+          "host": "192.168.1.12",
+          "port": 10002,
+          "bufsize": 2000
+        }
+      },
+      "rtk_gps": {
+        "driver": "gps",
+        "init": {}
+      },
+      "rtk_gps_serial": {
+        "driver": "serial",
+        "in": [
+          "raw"
+        ],
+        "out": [
+          "raw"
+        ],
+        "init": {
+          "port": "/dev/ttyACM1",
+          "speed": 115200
+        }
+      },
+      "local_map": {
+        "driver": "robot.local_map:LocalMap",
+        "in": [
+          "scan",
+          "pose3d"
+        ],
+        "out": [
+          "grid"
+        ],
+        "init": {
+          "size": 20,
+          "resolution": 0.2,
+          "lidar_range": 15,
+          "flip_scan": false,
+          "heading_aligned": true,
+          "unknown_value": 1,
+          "accumulate": false
+        }
+      }
+    },
+    "links": [
+      [
+        "lidar.scan3d",
+        "scan.scan3d"
+      ],
+      [
+        "scan.scan",
+        "local_map.scan"
+      ],
+      [
+        "lsqr.pose3d",
+        "local_map.pose3d"
+      ],
+      [
+        "receiver.encoders",
+        "lsqr.encoders"
+      ],
+      [
+        "imu.orientation",
+        "lsqr.orientation"
+      ],
+      [
+        "rtk_gps.nmea_data",
+        "lsqr.nmea"
+      ],
+      [
+        "imu_tcp.raw",
+        "imu.raw"
+      ],
+      [
+        "rtk_gps_serial.raw",
+        "rtk_gps.raw"
+      ]
+    ]
+  }
+}
