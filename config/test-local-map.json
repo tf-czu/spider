@@ -5,7 +5,7 @@
       "local_map": {
         "driver": "robot.local_map:LocalMap",
         "in": ["scan", "pose3d"],
-        "out": ["grid"],
+        "out": ["gridmap"],
         "init": {
           "size": 20,
           "resolution": 0.2,
@@ -13,7 +13,6 @@
           "angle_offset": -180,
           "flip_scan": false,
           "heading_aligned": false,
-          "unknown_value": 1,
           "accumulate": true
         }
       }

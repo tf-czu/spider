@@ -2,7 +2,7 @@
   Local grid map centered on the robot.
   Input:  scan   - 2D scan from Scan3DToScan2D (distances in mm per column, 0 = no obstacle)
           pose3d - [[x, y, z] (m), [qx, qy, qz, qw]]
-  Output: grid   - square list of lists grid[i][j], values 1 = traversable, 0 = obstacle.
+  Output: gridmap - square list of lists gridmap[i][j], values 0 = traversable, 1 = obstacle, -1 = unknown.
           Index i grows along the x axis (forward if heading_aligned, otherwise world x),
           index j grows along the y axis (left); the robot is in the middle of the map.
 """
@@ -23,7 +23,7 @@ def arrow_vector(heading, length):
 class LocalMap(Node):
     def __init__(self, config, bus):
         super().__init__(config, bus)
-        bus.register('grid')
+        bus.register('gridmap')
 
         self.size = config.get('size', 20.0)                        # map side (m)
         self.resolution = config.get('resolution', 0.2)             # cell size (m)
@@ -33,11 +33,10 @@ class LocalMap(Node):
         self.fov = math.radians(config.get('fov', 360))             # field of view covered by the scan (deg)
         self.flip_scan = config.get('flip_scan', False)             # scan is in the negative direction of rotation
         self.heading_aligned = config.get('heading_aligned', True)  # x axis of the map = robot heading
-        self.unknown_value = int(config.get('unknown_value', 1))    # value of cells without measurement
         self.accumulate = config.get('accumulate', False)           # keep older measurements
 
         self.pose = None  # (x mm, y mm, yaw rad)
-        # world aligned memory (-1 unknown, 0 obstacle, 1 free), used only for accumulation
+        # world aligned memory (-1 unknown, 0 free, 1 obstacle), used only for accumulation
         self.memory = np.full((self.n, self.n), -1, dtype=np.int8)
         self.memory_origin = None  # integer world cell index of the memory center
         self.history = []  # (grid, heading in map frame) collected only in verbose mode for draw()
@@ -47,7 +46,7 @@ class LocalMap(Node):
         self.pose = (xyz[0] * 1000, xyz[1] * 1000, heading(quat))  # pose3d is in meters, scan in mm
 
     def scan_to_cells(self, scan, yaw):
-        """Return a robot centered (world aligned) map: -1 unknown, 0 obstacle, 1 free."""
+        """Return a robot centered (world aligned) map: -1 unknown, 0 free, 1 obstacle."""
         scan = np.asarray(scan, dtype=float)
         count = len(scan)
         angles = self.angle_offset + np.arange(count) * self.fov / count
@@ -77,12 +76,12 @@ class LocalMap(Node):
             ok = (i >= 0) & (i < self.n) & (j >= 0) & (j < self.n)
             grid[i[ok], j[ok]] = value
 
-        paint(free, xs, ys, 1)
+        paint(free, xs, ys, 0)
         hx = dist[hit] * np.cos(angles[hit])
         hy = dist[hit] * np.sin(angles[hit])
         i, j = to_index(hx), to_index(hy)
         ok = (i >= 0) & (i < self.n) & (j >= 0) & (j < self.n)
-        grid[i[ok], j[ok]] = 0  # obstacle wins over free
+        grid[i[ok], j[ok]] = 1  # obstacle wins over free
         return grid
 
     def update_memory(self, new, x, y):
@@ -119,10 +118,10 @@ class LocalMap(Node):
         else:
             grid = self.scan_to_cells(data, yaw)
 
-        out = np.where(grid < 0, self.unknown_value, grid).astype(int)
+        out = grid.astype(int)
         if self.verbose:
             self.history.append((out, 0.0 if self.heading_aligned else yaw))
-        self.publish('grid', out.tolist())
+        self.publish('gridmap', out.tolist())
 
     def rotate_to_robot(self, world, yaw):
         """Resample world aligned map into the robot frame (nearest neighbour)."""
@@ -137,22 +136,21 @@ class LocalMap(Node):
         out[ok] = world[wi[ok], wj[ok]]
         return out
 
-    def draw(self, delay=0.05):
+    def draw(self):
         """
         Animate the published local maps (requires --verbose, otherwise nothing is recorded).
-        Black = obstacle, white = traversable; the robot is the red dot in the center,
+        Black = obstacle, white = traversable, gray = unknown; the robot is the red dot in the center,
         the arrow shows the robot heading, the x axis of the map points up and the y axis to the left.
-        Optional argument: pause between frames in seconds (default 0.05).
         """
         import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
 
         if not self.history:
             print("No grids to draw, run osgar.replay with --verbose")
             return
-        delay = float(delay)
         half = self.size / 2
         fig, ax = plt.subplots()
-        image = ax.imshow(self.history[0][0][:, ::-1], origin='lower', cmap='gray', vmin=0, vmax=1,
+        image = ax.imshow(self.history[0][0][:, ::-1], origin='lower', cmap=ListedColormap(['gray', 'white', 'black']), vmin=-1, vmax=1,
                           extent=(half, -half, -half, half))
         ax.plot([0], [0], 'ro')
         ax.set_xlabel('y (m)')
@@ -169,6 +167,6 @@ class LocalMap(Node):
                              color='red', width=length / 12, head_width=length / 3, length_includes_head=True)
             image.set_data(grid[:, ::-1])
             ax.set_title(f"local map {index + 1}/{len(self.history)}")
-            plt.pause(delay)
+            plt.pause(0.05)
         if plt.fignum_exists(fig.number):
             plt.show()
