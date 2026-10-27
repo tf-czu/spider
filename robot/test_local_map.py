@@ -137,6 +137,75 @@ class TestLocalMap(unittest.TestCase):
         self.assertEqual(grid[14, 10], 0)
         self.assertEqual(grid[17, 10], 1)
 
+    def test_empty_permanent_layer_changes_nothing(self):
+        scan = [0] * 360
+        scan[0] = 2000
+        for accumulate in (False, True):
+            results = []
+            for add in (False, True):
+                app, tester = make_app({'size': 10, 'resolution': 0.5, 'lidar_range': 4,
+                                        'accumulate': accumulate})
+                app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+                if add:
+                    app.add_permanent([], 'test')
+                app.on_scan(scan)
+                results.append(grid_of(tester))
+            self.assertTrue((results[0] == results[1]).all())
+
+    def test_permanent_obstacle_outside_lidar_range(self):
+        app, tester = make_app({'size': 20, 'resolution': 0.5, 'lidar_range': 4})
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        app.on_scan([0] * 360)
+        self.assertEqual(grid_of(tester)[20 + 16, 20], -1)  # 8 m ahead, out of the 4 m range
+        app.add_permanent([(16, 0)], 'test')
+        app.on_scan([0] * 360)
+        grid = grid_of(tester)
+        self.assertEqual(grid[20 + 16, 20], 1)
+        self.assertEqual((grid == 1).sum(), 1)
+
+    def test_permanent_obstacle_survives_window_shift(self):
+        app, tester = make_app({'size': 20, 'resolution': 0.5, 'lidar_range': 4})
+        app.add_permanent([(4, 0)], 'test')  # world x = 2 m
+        for x, expected in ((0, 1), (-20.0, None), (0, 1)):
+            app.on_pose3d([[x, 0, 0], [0, 0, 0, 1]])
+            app.on_scan([0] * 360)
+            grid = grid_of(tester)
+            if expected is None:
+                self.assertEqual((grid == 1).sum(), 0)  # 22 m away, outside of the window
+            else:
+                self.assertEqual(grid[20 + 4, 20], expected)
+
+    def test_permanent_layer_does_not_overwrite_free_space(self):
+        app, tester = make_app({'size': 20, 'resolution': 0.5, 'lidar_range': 4})
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        app.on_scan([0] * 360)
+        free = grid_of(tester)
+        app.add_permanent([(16, 0)], 'test')
+        app.on_scan([0] * 360)
+        grid = grid_of(tester)
+        changed = np.argwhere(grid != free)
+        self.assertEqual(changed.tolist(), [[20 + 16, 20]])  # only the permanent cell, unknown -> obstacle
+        self.assertEqual(grid[20 + 2, 20], 0)  # free space from the lidar stays free
+
+    def test_permanent_obstacle_overrides_current_free_cell(self):
+        app, tester = make_app({'size': 20, 'resolution': 0.5, 'lidar_range': 4})
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        app.add_permanent([(4, 0)], 'test')
+        app.on_scan([0] * 360)  # the lidar sees free space, the permanent obstacle stays
+        self.assertEqual(grid_of(tester)[20 + 4, 20], 1)
+
+    def test_permanent_obstacle_frames(self):
+        yaw = math.pi / 2
+        pose = [[0, 0, 0], [0, 0, math.sin(yaw / 2), math.cos(yaw / 2)]]
+        for heading_aligned, expected in ((True, (20, 20 - 8)), (False, (20 + 8, 20))):
+            app, tester = make_app({'size': 20, 'resolution': 0.5, 'lidar_range': 4,
+                                    'heading_aligned': heading_aligned})
+            app.on_pose3d(pose)
+            app.add_permanent([(8, 0)], 'test')  # world x = 4 m, robot looks along world y
+            app.on_scan([0] * 360)
+            grid = grid_of(tester)
+            self.assertEqual(np.argwhere(grid == 1).tolist(), [list(expected)])
+
     def test_angle_offset(self):
         # Ouster column 0 points backwards, angle_offset 180 turns it into the rear of the robot
         app, tester = make_app({'size': 10, 'resolution': 0.5, 'lidar_range': 4, 'angle_offset': 180})

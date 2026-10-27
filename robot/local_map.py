@@ -3,6 +3,9 @@
   Input:  scan   - 2D scan from Scan3DToScan2D (distances in mm per column, 0 = no obstacle)
           pose3d - [[x, y, z] (m), [qx, qy, qz, qw]]
   Output: gridmap - square list of lists gridmap[i][j], values 0 = traversable, 1 = obstacle, -1 = unknown.
+  The gridmap is a merge of layers: the current map from the lidar (optionally accumulated) and the
+  permanent obstacles (stored in world cells, independent of the robot centered window).
+  An obstacle in any layer is an obstacle in the result; permanent layer never changes free cells otherwise.
           Index i grows along the x axis (forward if heading_aligned, otherwise world x),
           index j grows along the y axis (left); the robot is in the middle of the map.
 """
@@ -39,6 +42,9 @@ class LocalMap(Node):
         # world aligned memory (-1 unknown, 0 free, 1 obstacle), used only for accumulation
         self.memory = np.full((self.n, self.n), -1, dtype=np.int8)
         self.memory_origin = None  # integer world cell index of the memory center
+        # permanent obstacles: world cell index (round(position / cell size)) -> source of the obstacle
+        self.permanent = {}
+        self.permanent_cells = np.zeros((0, 2), dtype=int)
         self.history = []  # (grid, heading in map frame) collected only in verbose mode for draw()
 
     def on_pose3d(self, data):
@@ -101,6 +107,28 @@ class LocalMap(Node):
         self.memory[known] = new[known]
         return self.memory
 
+    def add_permanent(self, cells, source):
+        """Add permanent obstacles given as world cell indices (i, j) = round(x / cell), round(y / cell)."""
+        for cell in cells:
+            self.permanent[(int(cell[0]), int(cell[1]))] = source
+        self.permanent_cells = np.array(list(self.permanent), dtype=int).reshape(-1, 2)
+
+    def render_permanent(self, x, y, yaw):
+        """Permanent obstacles (1) in the robot centered window, other cells are unknown (-1).
+        The cells are transformed directly (not resampled), so thin obstacles cannot disappear."""
+        grid = np.full((self.n, self.n), -1, dtype=np.int8)
+        cell = self.resolution * 1000
+        dx = self.permanent_cells[:, 0] * cell - x
+        dy = self.permanent_cells[:, 1] * cell - y
+        if self.heading_aligned:
+            c, s = math.cos(yaw), math.sin(yaw)
+            dx, dy = c * dx + s * dy, -s * dx + c * dy
+        i = np.floor(dx / cell + 0.5).astype(int) + self.n // 2
+        j = np.floor(dy / cell + 0.5).astype(int) + self.n // 2
+        ok = (i >= 0) & (i < self.n) & (j >= 0) & (j < self.n)
+        grid[i[ok], j[ok]] = 1
+        return grid
+
     def on_scan(self, data):
         if self.pose is None:
             if self.accumulate or not self.heading_aligned:
@@ -117,6 +145,9 @@ class LocalMap(Node):
             grid = self.scan_to_cells(data, 0.0)  # robot frame directly
         else:
             grid = self.scan_to_cells(data, yaw)
+
+        if len(self.permanent_cells) and self.pose is not None:
+            grid = np.where(self.render_permanent(x, y, yaw) == 1, 1, grid)
 
         out = grid.astype(int)
         if self.verbose:
