@@ -4,7 +4,7 @@
     "modules": {
       "local_map": {
         "driver": "robot.local_map:LocalMap",
-        "in": ["scan", "pose3d"],
+        "in": ["scan", "pose3d", "bumpers"],
         "out": ["gridmap"],
         "init": {
           "size": 20,
@@ -13,13 +13,15 @@
           "angle_offset": -180,
           "flip_scan": false,
           "heading_aligned": false,
-          "accumulate": true
+          "accumulate": true,
+          "bumpers": [[1, 0, 1, 0.9], [1, -0.9, 1, 0]]
         }
       }
     },
     "links": [
       ["scan.scan", "local_map.scan"],
-      ["lsqr.pose3d", "local_map.pose3d"]
+      ["lsqr.pose3d", "local_map.pose3d"],
+      ["receiver.bumpers", "local_map.bumpers"]
     ]
   }
 }

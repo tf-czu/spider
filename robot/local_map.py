@@ -1,7 +1,8 @@
 """
   Local grid map centered on the robot.
-  Input:  scan   - 2D scan from Scan3DToScan2D (distances in mm per column, 0 = no obstacle)
-          pose3d - [[x, y, z] (m), [qx, qy, qz, qw]]
+  Input:  scan    - 2D scan from Scan3DToScan2D (distances in mm per column, 0 = no obstacle)
+          pose3d  - [[x, y, z] (m), [qx, qy, qz, qw]]
+          bumpers - list of 0/1 flags, one per configured bumper segment (e.g. [left, right])
   Output: gridmap - square list of lists gridmap[i][j], values 0 = traversable, 1 = obstacle, -1 = unknown.
   The gridmap is a merge of layers: the current map from the lidar (optionally accumulated) and the
   permanent obstacles (stored in world cells, independent of the robot centered window).
@@ -9,12 +10,15 @@
           Index i grows along the x axis (forward if heading_aligned, otherwise world x),
           index j grows along the y axis (left); the robot is in the middle of the map.
 """
+import logging
 import math
 
 import numpy as np
 
 from osgar.lib.quaternion import heading
 from osgar.node import Node
+
+g_logger = logging.getLogger(__name__)
 
 
 def arrow_vector(heading, length):
@@ -37,6 +41,10 @@ class LocalMap(Node):
         self.flip_scan = config.get('flip_scan', False)             # scan is in the negative direction of rotation
         self.heading_aligned = config.get('heading_aligned', True)  # x axis of the map = robot heading
         self.accumulate = config.get('accumulate', False)           # keep older measurements
+        # bumper segments [x1, y1, x2, y2] in meters relative to the robot center (x forward, y left),
+        # the order corresponds to the order of the flags in the bumpers message
+        self.bumpers = np.array(config.get('bumpers', []), dtype=float).reshape(-1, 4) * 1000  # mm
+        self.bumpers_mismatch_reported = False
 
         self.pose = None  # (x mm, y mm, yaw rad)
         # world aligned memory (-1 unknown, 0 free, 1 obstacle), used only for accumulation
@@ -112,6 +120,31 @@ class LocalMap(Node):
         for cell in cells:
             self.permanent[(int(cell[0]), int(cell[1]))] = source
         self.permanent_cells = np.array(list(self.permanent), dtype=int).reshape(-1, 2)
+
+    def on_bumpers(self, data):
+        """Pressed bumpers create permanent obstacles along their segments at the current robot pose."""
+        if len(data) != len(self.bumpers):
+            if not self.bumpers_mismatch_reported:
+                g_logger.warning("Bumpers message has %d items but %d bumpers are configured, ignoring",
+                                 len(data), len(self.bumpers))
+                self.bumpers_mismatch_reported = True
+            return
+        if self.pose is None or not any(data):
+            return
+        x, y, yaw = self.pose
+        c, s = math.cos(yaw), math.sin(yaw)
+        cell = self.resolution * 1000
+        cells = []
+        for pressed, (x1, y1, x2, y2) in zip(data, self.bumpers):
+            if not pressed:
+                continue
+            count = int(math.ceil(math.hypot(x2 - x1, y2 - y1) / (cell / 2))) + 1
+            bx = np.linspace(x1, x2, count)
+            by = np.linspace(y1, y2, count)
+            wx = x + c * bx - s * by
+            wy = y + s * bx + c * by
+            cells.extend(zip(np.floor(wx / cell + 0.5).astype(int), np.floor(wy / cell + 0.5).astype(int)))
+        self.add_permanent(cells, 'bumper')
 
     def render_permanent(self, x, y, yaw):
         """Permanent obstacles (1) in the robot centered window, other cells are unknown (-1).

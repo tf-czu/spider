@@ -206,6 +206,90 @@ class TestLocalMap(unittest.TestCase):
             grid = grid_of(tester)
             self.assertEqual(np.argwhere(grid == 1).tolist(), [list(expected)])
 
+    def make_bumper_app(self, **config):
+        cfg = {'size': 20, 'resolution': 0.5, 'lidar_range': 4,
+               'bumpers': [[1, 0, 1, 0.9], [1, -0.9, 1, 0]]}  # [left, right]
+        cfg.update(config)
+        app, tester = make_app(cfg)
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        return app, tester
+
+    def test_bumper_creates_permanent_obstacle(self):
+        app, tester = self.make_bumper_app()
+        app.on_bumpers([1, 0])
+        app.on_scan([0] * 360)
+        grid = grid_of(tester)
+        self.assertEqual(sorted(np.argwhere(grid == 1).tolist()), [[22, 20], [22, 21], [22, 22]])  # left only
+        self.assertEqual(set(app.permanent.values()), {'bumper'})
+
+    def test_bumper_right_and_both(self):
+        app, tester = self.make_bumper_app()
+        app.on_bumpers([0, 1])
+        app.on_scan([0] * 360)
+        self.assertEqual(sorted(np.argwhere(grid_of(tester) == 1).tolist()), [[22, 18], [22, 19], [22, 20]])
+        app.on_bumpers([1, 0])
+        app.on_scan([0] * 360)
+        self.assertEqual(len(np.argwhere(grid_of(tester) == 1)), 5)  # both are kept, [22, 20] is shared
+
+    def test_bumper_released_does_not_remove_obstacle(self):
+        app, tester = self.make_bumper_app()
+        app.on_bumpers([1, 1])
+        app.on_bumpers([0, 0])
+        app.on_scan([0] * 360)
+        self.assertEqual(len(np.argwhere(grid_of(tester) == 1)), 5)
+
+    def test_bumper_repeated_messages(self):
+        app, tester = self.make_bumper_app()
+        for _ in range(3):
+            app.on_bumpers([1, 0])
+        self.assertEqual(len(app.permanent), 3)
+
+    def test_bumper_at_more_positions(self):
+        app, tester = self.make_bumper_app()
+        app.on_bumpers([1, 0])
+        app.on_pose3d([[5.0, 0, 0], [0, 0, 0, 1]])
+        app.on_bumpers([1, 0])
+        self.assertEqual(len(app.permanent), 6)
+        app.on_scan([0] * 360)
+        grid = grid_of(tester)
+        self.assertEqual(len(np.argwhere(grid == 1)), 6)
+        self.assertEqual(grid[20 + 2 - 10, 20], 1)  # the first hit is 5 m behind the robot (+ 1 m forward)
+
+    def test_bumper_message_length_mismatch(self):
+        app, tester = self.make_bumper_app()
+        with self.assertLogs('robot.local_map', level='WARNING'):
+            app.on_bumpers([1, 1, 1])
+        app.on_bumpers([1])
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_bumper_without_pose_or_config(self):
+        app, tester = make_app({'bumpers': [[1, 0, 1, 0.9]]})
+        app.on_bumpers([1])  # unknown position
+        self.assertEqual(len(app.permanent), 0)
+        app, tester = make_app()
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        app.on_bumpers([])  # no bumpers configured
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_bumper_rotated_robot(self):
+        yaw = math.pi / 2
+        app, tester = self.make_bumper_app()
+        app.on_pose3d([[0, 0, 0], [0, 0, math.sin(yaw / 2), math.cos(yaw / 2)]])
+        app.on_bumpers([1, 0])
+        # the robot looks along world y, its left is world -x
+        self.assertEqual(set(app.permanent), {(0, 2), (-1, 2), (-2, 2)})
+
+    def test_bumper_in_robot_and_world_frame(self):
+        yaw = math.pi / 2
+        pose = [[0, 0, 0], [0, 0, math.sin(yaw / 2), math.cos(yaw / 2)]]
+        for heading_aligned, expected in ((True, [[22, 20], [22, 21], [22, 22]]),
+                                          (False, [[20, 22], [19, 22], [18, 22]])):
+            app, tester = self.make_bumper_app(heading_aligned=heading_aligned)
+            app.on_pose3d(pose)
+            app.on_bumpers([1, 0])
+            app.on_scan([0] * 360)
+            self.assertEqual(sorted(np.argwhere(grid_of(tester) == 1).tolist()), sorted(expected))
+
     def test_angle_offset(self):
         # Ouster column 0 points backwards, angle_offset 180 turns it into the rear of the robot
         app, tester = make_app({'size': 10, 'resolution': 0.5, 'lidar_range': 4, 'angle_offset': 180})
