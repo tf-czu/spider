@@ -1,5 +1,6 @@
 import math
 import unittest
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -346,6 +347,117 @@ class TestLocalMap(unittest.TestCase):
         self.assertAlmostEqual(dy, 0)
         dx, dy = arrow_vector(-math.pi / 2, 1)  # heading -y -> drawn to the right
         self.assertAlmostEqual(dx, -1)
+
+
+DETECT = {'size': 20, 'resolution': 0.5, 'lidar_range': 8, 'heading_aligned': False,
+          'detect_permanent': True, 'min_hits': 5, 'min_ratio': 0.8, 'min_duration': 1.0,
+          'min_cells': 3, 'analysis_period': 0.5, 'clear_misses': 3}
+
+
+def wall_scan(x=4.0, half_width=1.0):
+    """Wall across the x axis at distance x (m) with the given half width (m)."""
+    scan = [0] * 360
+    for k in range(-90, 91):
+        a = math.radians(k)
+        if abs(x * math.tan(a)) <= half_width:
+            scan[k % 360] = int(x * 1000 / math.cos(a))
+    return scan
+
+
+def run_scans(app, tester, scans, start=0):
+    """Feed scans at 10 Hz, return the last gridmap."""
+    grid = None
+    for k, scan in enumerate(scans, start):
+        app.time = timedelta(seconds=0.1 * k)
+        app.on_scan(scan)
+        grid = grid_of(tester)
+    return grid
+
+
+class TestStableObstacles(unittest.TestCase):
+    def make(self, **kwargs):
+        app, tester = make_app(dict(DETECT, **kwargs))
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        return app, tester
+
+    def test_stable_wall_promoted(self):
+        app, tester = self.make()
+        run_scans(app, tester, [wall_scan()] * 5)
+        self.assertEqual(len(app.permanent), 0)  # too early
+        run_scans(app, tester, [wall_scan()] * 20, 5)
+        self.assertGreaterEqual(len(app.permanent), 3)
+        self.assertEqual(set(app.permanent.values()), {'lidar'})
+        self.assertIn((8, 0), app.permanent)
+
+    def test_moving_obstacle_not_promoted(self):
+        app, tester = self.make()
+        positions = [3.0, 4.0, 5.0, 6.0, None]  # None = nothing in sight
+        scans = [[0] * 360 if positions[(k // 3) % 5] is None else wall_scan(positions[(k // 3) % 5])
+                 for k in range(90)]
+        run_scans(app, tester, scans)
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_small_obstacle_not_promoted(self):
+        app, tester = self.make()
+        scan = [0] * 360
+        scan[0] = scan[1] = scan[359] = 4000
+        run_scans(app, tester, [scan] * 30)
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_unstable_obstacle(self):
+        app, tester = self.make()
+        run_scans(app, tester, [wall_scan() if k % 2 else [0] * 360 for k in range(40)])
+        self.assertEqual(len(app.permanent), 0)  # ratio 0.5
+
+        app, tester = self.make()
+        run_scans(app, tester, [[0] * 360 if k % 10 == 0 else wall_scan() for k in range(40)])
+        self.assertGreater(len(app.permanent), 0)  # ratio 0.9
+
+    def test_promoted_obstacle_stays_until_free_confirmed(self):
+        app, tester = self.make()
+        run_scans(app, tester, [wall_scan()] * 25)
+        self.assertGreater(len(app.permanent), 0)
+        # lidar sees only a close wall around, the permanent obstacle is hidden
+        grid = run_scans(app, tester, [[1000] * 360] * 20, 25)
+        self.assertGreater(len(app.permanent), 0)
+        self.assertEqual(grid[20 + 8, 20], 1)
+        # free space confirmed
+        grid = run_scans(app, tester, [[0] * 360] * 15, 45)
+        self.assertEqual(len(app.permanent), 0)
+        self.assertEqual(grid[20 + 8, 20], 0)
+
+    def test_bumper_never_cleared(self):
+        app, tester = self.make()
+        app.add_permanent([(8, 0)], 'bumper')
+        run_scans(app, tester, [[0] * 360] * 30)
+        self.assertEqual(app.permanent, {(8, 0): 'bumper'})
+
+    def test_lidar_does_not_overwrite_bumper(self):
+        app, tester = self.make()
+        app.add_permanent([(8, 0)], 'bumper')
+        run_scans(app, tester, [wall_scan()] * 25)
+        self.assertEqual(app.permanent[(8, 0)], 'bumper')
+        self.assertGreater(len(app.permanent), 1)
+
+    def test_analysis_period(self):
+        app, tester = self.make(analysis_period=100)
+        run_scans(app, tester, [wall_scan()] * 30)
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_disabled_by_default(self):
+        app, tester = make_app({k: v for k, v in DETECT.items() if k != 'detect_permanent'})
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        run_scans(app, tester, [wall_scan()] * 30)
+        self.assertEqual(len(app.permanent), 0)
+
+    def test_robot_moves_along_wall(self):
+        app, tester = self.make()
+        for k in range(40):
+            app.on_pose3d([[0.1 * k * 0.1, 0, 0], [0, 0, 0, 1]])  # 0.1 m/s
+            app.time = timedelta(seconds=0.1 * k)
+            app.on_scan(wall_scan(4.0 - 0.01 * k))
+            grid_of(tester)
+        self.assertGreater(len(app.permanent), 0)
 
 
 if __name__ == '__main__':

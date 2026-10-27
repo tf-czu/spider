@@ -14,11 +14,22 @@ import logging
 import math
 
 import numpy as np
+from scipy import ndimage
 
 from osgar.lib.quaternion import heading
 from osgar.node import Node
 
 g_logger = logging.getLogger(__name__)
+
+
+def shift_array(array, di, dj, fill):
+    """Shift array content by (-di, -dj) cells: the cell [i + di, j + dj] moves to [i, j]."""
+    n = array.shape[0]
+    shifted = np.full_like(array, fill)
+    if abs(di) < n and abs(dj) < n:
+        shifted[max(0, -di):min(n, n - di), max(0, -dj):min(n, n - dj)] = \
+            array[max(0, di):min(n, n + di), max(0, dj):min(n, n + dj)]
+    return shifted
 
 
 def arrow_vector(heading, length):
@@ -46,6 +57,22 @@ class LocalMap(Node):
         self.bumpers = np.array(config.get('bumpers', []), dtype=float).reshape(-1, 4) * 1000  # mm
         self.bumpers_mismatch_reported = False
 
+        # detection of stable obstacles in the lidar data, promoted to the permanent layer
+        self.detect_permanent = config.get('detect_permanent', False)
+        self.min_hits = config.get('min_hits', 30)                # scans with an obstacle in the cell
+        self.min_ratio = config.get('min_ratio', 0.8)             # hits / (hits + misses)
+        self.min_duration = config.get('min_duration', 3.0)       # seconds since the first hit
+        self.min_cells = config.get('min_cells', 5)               # size of the connected component
+        self.analysis_period = config.get('analysis_period', 1.0)  # seconds between analyses
+        self.clear_misses = max(1, config.get('clear_misses', 20))  # free observations in a row to forget
+        shape = (self.n, self.n)
+        self.hits = np.zeros(shape, dtype=np.int32)
+        self.misses = np.zeros(shape, dtype=np.int32)
+        self.free_streak = np.zeros(shape, dtype=np.int32)
+        self.first_seen = np.full(shape, np.nan)
+        self.stats_origin = None  # integer world cell index of the center of the statistics window
+        self.last_analysis = None
+
         self.pose = None  # (x mm, y mm, yaw rad)
         # world aligned memory (-1 unknown, 0 free, 1 obstacle), used only for accumulation
         self.memory = np.full((self.n, self.n), -1, dtype=np.int8)
@@ -59,8 +86,9 @@ class LocalMap(Node):
         xyz, quat = data
         self.pose = (xyz[0] * 1000, xyz[1] * 1000, heading(quat))  # pose3d is in meters, scan in mm
 
-    def scan_to_cells(self, scan, yaw):
-        """Return a robot centered (world aligned) map: -1 unknown, 0 free, 1 obstacle."""
+    def scan_to_cells(self, scan, yaw, shift=(0.0, 0.0)):
+        """Return a robot centered (world aligned) map: -1 unknown, 0 free, 1 obstacle.
+        The shift (mm) is the position of the robot relative to the center of the window."""
         scan = np.asarray(scan, dtype=float)
         count = len(scan)
         angles = self.angle_offset + np.arange(count) * self.fov / count
@@ -82,34 +110,33 @@ class LocalMap(Node):
         cell = self.resolution * 1000
         half = self.n // 2
 
-        def to_index(v):
-            return np.floor(v / cell + 0.5).astype(int) + half
+        def to_index(v, offset):
+            return np.floor((v + offset) / cell + 0.5).astype(int) + half
 
         def paint(mask, x, y, value):
-            i, j = to_index(x[mask]), to_index(y[mask])
+            i, j = to_index(x[mask], shift[0]), to_index(y[mask], shift[1])
             ok = (i >= 0) & (i < self.n) & (j >= 0) & (j < self.n)
             grid[i[ok], j[ok]] = value
 
         paint(free, xs, ys, 0)
         hx = dist[hit] * np.cos(angles[hit])
         hy = dist[hit] * np.sin(angles[hit])
-        i, j = to_index(hx), to_index(hy)
+        i, j = to_index(hx, shift[0]), to_index(hy, shift[1])
         ok = (i >= 0) & (i < self.n) & (j >= 0) & (j < self.n)
         grid[i[ok], j[ok]] = 1  # obstacle wins over free
         return grid
 
+    def window_origin(self, x, y):
+        """World cell index of the robot, the center of the world aligned windows."""
+        cell = self.resolution * 1000
+        return int(math.floor(x / cell + 0.5)), int(math.floor(y / cell + 0.5))
+
     def update_memory(self, new, x, y):
         """Shift the world aligned memory to the new robot cell and merge the new measurement."""
-        cell = self.resolution * 1000
-        origin = (int(round(x / cell)), int(round(y / cell)))
+        origin = self.window_origin(x, y)
         if self.memory_origin is not None:
             di, dj = origin[0] - self.memory_origin[0], origin[1] - self.memory_origin[1]
-            shifted = np.full_like(self.memory, -1)
-            n = self.n
-            if abs(di) < n and abs(dj) < n:
-                shifted[max(0, -di):min(n, n - di), max(0, -dj):min(n, n - dj)] = \
-                    self.memory[max(0, di):min(n, n + di), max(0, dj):min(n, n + dj)]
-            self.memory = shifted
+            self.memory = shift_array(self.memory, di, dj, -1)
         self.memory_origin = origin
         known = new >= 0
         self.memory[known] = new[known]
@@ -120,6 +147,55 @@ class LocalMap(Node):
         for cell in cells:
             self.permanent[(int(cell[0]), int(cell[1]))] = source
         self.permanent_cells = np.array(list(self.permanent), dtype=int).reshape(-1, 2)
+
+    def remove_permanent(self, cells):
+        for cell in cells:
+            del self.permanent[cell]
+        self.permanent_cells = np.array(list(self.permanent), dtype=int).reshape(-1, 2)
+
+    def update_stats(self, obs, origin, now):
+        """Update per cell counters from a world aligned observation (-1 unknown, 0 free, 1 obstacle)."""
+        if self.stats_origin is not None and origin != self.stats_origin:
+            di, dj = origin[0] - self.stats_origin[0], origin[1] - self.stats_origin[1]
+            self.hits = shift_array(self.hits, di, dj, 0)
+            self.misses = shift_array(self.misses, di, dj, 0)
+            self.free_streak = shift_array(self.free_streak, di, dj, 0)
+            self.first_seen = shift_array(self.first_seen, di, dj, np.nan)
+        self.stats_origin = origin
+        obstacle = obs == 1
+        free = obs == 0
+        self.first_seen[obstacle & np.isnan(self.first_seen)] = now
+        self.hits[obstacle] += 1
+        self.misses[free] += 1
+        self.free_streak[free] += 1
+        self.free_streak[obstacle] = 0
+        forget = self.free_streak >= self.clear_misses  # the obstacle is gone, start from scratch
+        self.hits[forget] = 0
+        self.misses[forget] = 0
+        self.first_seen[forget] = np.nan
+
+    def analyse_stats(self, obs, now):
+        """Promote large stable obstacles to the permanent layer, remove lidar ones confirmed free."""
+        origin = self.stats_origin
+        half = self.n // 2
+        ratio = self.hits / np.maximum(self.hits + self.misses, 1)
+        with np.errstate(invalid='ignore'):
+            stable = (now - self.first_seen) >= self.min_duration  # False for NaN
+        candidate = (obs == 1) & (self.hits >= self.min_hits) & (ratio >= self.min_ratio) & stable
+        labels, _ = ndimage.label(candidate, structure=np.ones((3, 3)))
+        keep = np.bincount(labels.ravel()) >= self.min_cells
+        keep[0] = False
+        cells = np.argwhere(keep[labels]) - half + origin
+        self.add_permanent([c for c in cells if (int(c[0]), int(c[1])) not in self.permanent], 'lidar')
+
+        cleared = []
+        for (ci, cj), source in self.permanent.items():
+            i, j = ci - origin[0] + half, cj - origin[1] + half
+            if source == 'lidar' and 0 <= i < self.n and 0 <= j < self.n \
+                    and self.free_streak[i, j] >= self.clear_misses:
+                cleared.append((ci, cj))
+        if cleared:
+            self.remove_permanent(cleared)
 
     def on_bumpers(self, data):
         """Pressed bumpers create permanent obstacles along their segments at the current robot pose."""
@@ -170,9 +246,23 @@ class LocalMap(Node):
         else:
             x, y, yaw = self.pose
 
+        now = self.time.total_seconds() if self.time is not None else 0.0
+        observed = None
+        if self.pose is not None and (self.accumulate or self.detect_permanent):
+            origin = self.window_origin(x, y)
+            cell = self.resolution * 1000
+            observed = self.scan_to_cells(data, yaw, (x - origin[0] * cell, y - origin[1] * cell))
+        if self.pose is not None and self.detect_permanent:
+            self.update_stats(observed, origin, now)
+            if self.last_analysis is None:
+                self.last_analysis = now
+            elif now - self.last_analysis >= self.analysis_period:
+                self.last_analysis = now
+                self.analyse_stats(observed, now)
+
         if self.accumulate:
             # world aligned scan, the memory is world aligned too
-            world = self.update_memory(self.scan_to_cells(data, yaw), x, y)
+            world = self.update_memory(observed, x, y)
             grid = self.rotate_to_robot(world, yaw) if self.heading_aligned else world
         elif self.heading_aligned:
             grid = self.scan_to_cells(data, 0.0)  # robot frame directly
