@@ -14,7 +14,7 @@
           "flip_scan": false,
           "heading_aligned": false,
           "unknown_value": 1,
-          "accumulate": false
+          "accumulate": true
         }
       }
     },
