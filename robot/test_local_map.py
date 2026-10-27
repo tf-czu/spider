@@ -95,6 +95,46 @@ class TestLocalMap(unittest.TestCase):
         app.on_scan([0] * 360)  # same pose, nothing changes
         grid_of(tester)
 
+    def make_accumulating(self, size=10):
+        app, tester = make_app({'size': size, 'resolution': 0.5, 'lidar_range': 4, 'accumulate': True})
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        scan = [0] * 360
+        scan[0] = 2000  # obstacle 2 m ahead
+        app.on_scan(scan)
+        half = size * 2 // 2
+        self.assertEqual(grid_of(tester)[half + 4, half], 0)
+        return app, tester, half
+
+    def test_obstacle_kept_when_hidden_behind_closer_obstacle(self):
+        app, tester, half = self.make_accumulating()
+        app.on_scan([1000] * 360)  # wall 1 m around the robot, the old obstacle is not visible
+        grid = grid_of(tester)
+        self.assertEqual(grid[half + 4, half], 0)
+        self.assertEqual(grid[half + 2, half], 0)  # the wall itself
+
+    def test_obstacle_kept_when_out_of_lidar_range(self):
+        app, tester, half = self.make_accumulating(size=20)
+        app.on_pose3d([[-3.0, 0, 0], [0, 0, 0, 1]])  # the obstacle is 5 m away, the range is 4 m
+        app.on_scan([0] * 360)
+        self.assertEqual(grid_of(tester)[half + 10, half], 0)
+        app.on_pose3d([[0, 0, 0], [0, 0, 0, 1]])
+        app.on_scan([0] * 360)  # robot returns and sees free space
+        self.assertEqual(grid_of(tester)[half + 4, half], 1)
+
+    def test_obstacle_removed_when_lidar_sees_free_space(self):
+        app, tester, _ = self.make_accumulating()
+        app.on_scan([0] * 360)  # lidar confirms free space in the whole range
+        self.assertEqual(grid_of(tester)[14, 10], 1)
+
+    def test_obstacle_removed_when_lidar_sees_farther(self):
+        app, tester, _ = self.make_accumulating()
+        scan = [0] * 360
+        scan[0] = 3500  # the obstacle moved away, the beam passes through the old cell
+        app.on_scan(scan)
+        grid = grid_of(tester)
+        self.assertEqual(grid[14, 10], 1)
+        self.assertEqual(grid[17, 10], 0)
+
     def test_angle_offset(self):
         # Ouster column 0 points backwards, angle_offset 180 turns it into the rear of the robot
         app, tester = make_app({'size': 10, 'resolution': 0.5, 'lidar_range': 4, 'angle_offset': 180})
